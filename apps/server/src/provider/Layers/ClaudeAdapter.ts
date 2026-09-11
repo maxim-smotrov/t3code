@@ -642,7 +642,7 @@ function describeClaudeUsageLimit(
 ): string {
   const label =
     info.rateLimitType === "seven_day_overage_included" && names.overageIncluded
-      ? `7-day ${names.overageIncluded}`
+      ? `7-day ${names.overageIncluded.displayName}`
       : info.rateLimitType
         ? CLAUDE_USAGE_LIMIT_WINDOWS[info.rateLimitType]
         : undefined;
