@@ -75,6 +75,9 @@ export function applyUsageLimitsUpdate(input: {
     const existing = merged.get(window.id);
     const next: ServerProviderUsageWindow = {
       ...window,
+      ...(window.modelSlugs === undefined && existing?.modelSlugs !== undefined
+        ? { modelSlugs: existing.modelSlugs }
+        : {}),
       usedPercent: clampPercent(window.usedPercent),
       ...(window.resetsAt === undefined && existing?.resetsAt !== undefined
         ? { resetsAt: existing.resetsAt }
@@ -92,7 +95,10 @@ export function applyUsageLimitsUpdate(input: {
     return previous;
   }
   return {
-    ...makeUsageLimits({ checkedAt: input.checkedAt, windows: merged.values() }),
+    ...makeUsageLimits({
+      checkedAt: input.checkedAt,
+      windows: merged.values(),
+    }),
     ...(previous?.resetCredits !== undefined ? { resetCredits: previous.resetCredits } : {}),
   };
 }
@@ -103,9 +109,18 @@ function usageWindowEquals(a: ServerProviderUsageWindow, b: ServerProviderUsageW
     a.kind === b.kind &&
     a.label === b.label &&
     a.usedPercent === b.usedPercent &&
+    sameModelSlugs(a.modelSlugs, b.modelSlugs) &&
     a.resetsAt === b.resetsAt &&
     a.windowDurationMins === b.windowDurationMins
   );
+}
+
+function sameModelSlugs(
+  a: ReadonlyArray<string> | undefined,
+  b: ReadonlyArray<string> | undefined,
+): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  return a.length === b.length && a.every((slug, index) => slug === b[index]);
 }
 
 /**
