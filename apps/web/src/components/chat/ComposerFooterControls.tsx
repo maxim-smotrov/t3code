@@ -1,8 +1,10 @@
 import type {
+  EnvironmentId,
   ModelSelection,
   ProviderInstanceId,
   ProviderInteractionMode,
   RuntimeMode,
+  ServerProviderUsageLimits,
 } from "@t3tools/contracts";
 import { createModelSelection } from "@t3tools/shared/model";
 import { BotIcon, PencilRulerIcon } from "lucide-react";
@@ -18,8 +20,10 @@ import {
   ComposerSelectControl,
 } from "./ComposerControl";
 import { useComposerMenuProps } from "./composerEventScope";
+import { ComposerPlanLimits } from "./ComposerPlanLimits";
 import { ComposerPrimaryActions } from "./ComposerPrimaryActions";
 import { ContextWindowMeter, ContextWindowMeterPlaceholder } from "./ContextWindowMeter";
+import type { PlanLimitsTitle } from "./planLimits";
 import { resolveModelPickerSelectedModel } from "./ModelPickerContent";
 import { ProviderModelPicker } from "./ProviderModelPicker";
 import { runtimeModeConfig } from "./runtimeModeConfig";
@@ -152,6 +156,13 @@ export const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryA
   canOperateThread: boolean;
   activeContextWindow: ContextWindowSnapshot | null;
   reserveContextWindowMeter: boolean;
+  planLimits: {
+    readonly environmentId: EnvironmentId;
+    readonly instanceId: ProviderInstanceId;
+    readonly limits: ServerProviderUsageLimits;
+    readonly title: PlanLimitsTitle;
+  } | null;
+  planLimitsModel: string | null;
   activeThreadModelDisplayName: string | null;
   isPreparingWorktree: boolean;
   pendingAction: {
@@ -190,6 +201,15 @@ export const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryA
 }) {
   return (
     <>
+      {props.planLimits ? (
+        <ComposerPlanLimits
+          environmentId={props.planLimits.environmentId}
+          instanceId={props.planLimits.instanceId}
+          limits={props.planLimits.limits}
+          model={props.planLimitsModel}
+          title={props.planLimits.title}
+        />
+      ) : null}
       {props.activeContextWindow ? (
         <ContextWindowMeter
           usage={props.activeContextWindow}
