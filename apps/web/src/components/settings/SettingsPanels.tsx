@@ -546,6 +546,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.composerCollapseOnScroll !== DEFAULT_UNIFIED_SETTINGS.composerCollapseOnScroll
         ? ["Collapse composer on scroll"]
         : []),
+      ...(settings.planLimitsGaugeEnabled !== DEFAULT_UNIFIED_SETTINGS.planLimitsGaugeEnabled
+        ? ["Plan limits gauge"]
+        : []),
       ...(settings.contextWindowMeterEnabled !== DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled
         ? ["Context window indicator"]
         : []),
@@ -605,6 +608,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.confirmThreadDelete,
       settings.confirmThreadUnpin,
       settings.composerCollapseOnScroll,
+      settings.planLimitsGaugeEnabled,
       settings.addProjectBaseDirectory,
       settings.defaultThreadEnvMode,
       settings.newWorktreesStartFromOrigin,
@@ -711,6 +715,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       proactivePanelsEnabled: DEFAULT_UNIFIED_SETTINGS.proactivePanelsEnabled,
       showSkillsInSlashMenu: DEFAULT_UNIFIED_SETTINGS.showSkillsInSlashMenu,
       composerCollapseOnScroll: DEFAULT_UNIFIED_SETTINGS.composerCollapseOnScroll,
+      planLimitsGaugeEnabled: DEFAULT_UNIFIED_SETTINGS.planLimitsGaugeEnabled,
       contextWindowMeterEnabled: DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled,
       environmentIdentificationMode: DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode,
       glassOpacity: DEFAULT_UNIFIED_SETTINGS.glassOpacity,
@@ -2414,6 +2419,32 @@ export function GeneralSettingsPanel() {
                 updateSettings({ composerCollapseOnScroll: Boolean(checked) })
               }
               aria-label="Collapse composer on scroll"
+            />
+          }
+        />
+
+        <SettingsRow
+          {...searchableSetting("plan-limits-gauge")}
+          description="Show a gauge in the composer that displays the remaining usage within your limits. The needle shows the shortest window, while the arc shows the next longer one."
+          resetAction={
+            settings.planLimitsGaugeEnabled !== DEFAULT_UNIFIED_SETTINGS.planLimitsGaugeEnabled ? (
+              <SettingResetButton
+                label="plan limits gauge"
+                onClick={() =>
+                  updateSettings({
+                    planLimitsGaugeEnabled: DEFAULT_UNIFIED_SETTINGS.planLimitsGaugeEnabled,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.planLimitsGaugeEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ planLimitsGaugeEnabled: Boolean(checked) })
+              }
+              aria-label="Plan limits gauge"
             />
           }
         />

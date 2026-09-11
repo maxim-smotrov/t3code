@@ -19,6 +19,7 @@ import type {
   ServerProvider,
   ThreadId,
   SnapShotSource,
+  ServerProviderUsageLimits,
 } from "@t3tools/contracts";
 import {
   ProviderDriverKind,
@@ -223,6 +224,8 @@ import {
   subscribeToPendingSnapShotAnimations,
 } from "../../lib/snapShotAnimation";
 import { resizeSnapShotSource } from "../../lib/snapShotSource";
+import { ComposerPlanLimits } from "./ComposerPlanLimits";
+import { hasRenderableLimits, planLimitsTitle, type PlanLimitsTitle } from "./planLimits";
 import { basenameOfPath } from "../../pierre-icons";
 import { cn, randomUUID } from "~/lib/utils";
 import {
@@ -1116,6 +1119,13 @@ const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryActions(
   compact: boolean;
   activeContextWindow: ContextWindowSnapshot | null;
   reserveContextWindowMeter: boolean;
+  planLimits: {
+    readonly environmentId: EnvironmentId;
+    readonly instanceId: ProviderInstanceId;
+    readonly limits: ServerProviderUsageLimits;
+    readonly title: PlanLimitsTitle;
+  } | null;
+  planLimitsModel: string | null;
   activeThreadModelDisplayName: string | null;
   isPreparingWorktree: boolean;
   pendingAction: {
@@ -1144,6 +1154,15 @@ const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryActions(
 }) {
   return (
     <>
+      {props.planLimits ? (
+        <ComposerPlanLimits
+          environmentId={props.planLimits.environmentId}
+          instanceId={props.planLimits.instanceId}
+          limits={props.planLimits.limits}
+          model={props.planLimitsModel}
+          title={props.planLimits.title}
+        />
+      ) : null}
       {props.activeContextWindow ? (
         <ContextWindowMeter
           usage={props.activeContextWindow}
@@ -1749,6 +1768,28 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // disabled.
   const selectedProvider: ProviderDriverKind =
     selectedProviderEntry?.driverKind ?? requestedDriverKind;
+
+  const selectedPlanLimits = selectedProviderEntry?.snapshot.usageLimits ?? null;
+  const planLimits = useMemo(
+    () =>
+      !settings.planLimitsGaugeEnabled ||
+      selectedProviderEntry === undefined ||
+      !hasRenderableLimits(selectedPlanLimits)
+        ? null
+        : {
+            environmentId,
+            instanceId: selectedProviderEntry.instanceId,
+            limits: selectedPlanLimits,
+            title: planLimitsTitle(selectedProviderEntry, providerInstanceEntries),
+          },
+    [
+      environmentId,
+      providerInstanceEntries,
+      selectedPlanLimits,
+      selectedProviderEntry,
+      settings.planLimitsGaugeEnabled,
+    ],
+  );
 
   const { modelOptions: composerModelOptions, selectedModel } = useEffectiveComposerModelState({
     threadRef: composerDraftTarget,
@@ -5827,6 +5868,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       settings.contextWindowMeterEnabled ? activeContextWindow : null
                     }
                     reserveContextWindowMeter={reserveContextWindowMeter}
+                    planLimits={planLimits}
+                    planLimitsModel={selectedModel === "" ? null : selectedModel}
                     activeThreadModelDisplayName={activeThreadModelDisplayName}
                     pendingAction={pendingPrimaryAction}
                     isRunning={phase === "running"}
