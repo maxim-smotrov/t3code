@@ -306,6 +306,7 @@ import {
   subscribeToPendingSnapShotAnimations,
 } from "../../lib/snapShotAnimation";
 import { resizeSnapShotSource } from "../../lib/snapShotSource";
+import { hasRenderableLimits, planLimitsTitle } from "./planLimits";
 import { cn, isMacPlatform, randomUUID } from "~/lib/utils";
 import {
   getComposerPromptLengthValidationMessage,
@@ -2019,6 +2020,19 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   )
     ? runtimeMode
     : (compatibleRuntimeModeOptions[0]?.mode ?? runtimeMode);
+
+  const selectedPlanLimits = selectedProviderEntry?.snapshot.usageLimits ?? null;
+  const planLimits =
+    !settings.planLimitsGaugeEnabled ||
+    selectedProviderEntry === undefined ||
+    !hasRenderableLimits(selectedPlanLimits)
+      ? null
+      : {
+          environmentId,
+          instanceId: selectedProviderEntry.instanceId,
+          limits: selectedPlanLimits,
+          title: planLimitsTitle(selectedProviderEntry, providerInstanceEntries),
+        };
 
   const providerSendBlockReason = getAntigravitySendBlockReason(
     selectedProviderEntry?.snapshot,
@@ -6279,6 +6293,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       settings.contextWindowMeterEnabled ? activeContextWindow : null
                     }
                     reserveContextWindowMeter={reserveContextWindowMeter}
+                    planLimits={planLimits}
+                    planLimitsModel={selectedModel === "" ? null : selectedModel}
                     activeThreadModelDisplayName={activeThreadModelDisplayName}
                     pendingAction={pendingPrimaryAction}
                     isRunning={phase === "running"}
