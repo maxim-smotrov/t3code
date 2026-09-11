@@ -12,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
+import { BUNDLED_CLAUDE_MODEL_CATALOG } from "../provider/ClaudeModelCatalog.ts";
 import { codexPlanLabel } from "../provider/Layers/CodexProvider.ts";
 import { codexRateLimitsToLimits } from "../provider/Layers/codexUsageLimits.ts";
 import { claudeUsageResponseToLimits } from "../provider/Layers/claudeUsageLimits.ts";
@@ -226,6 +227,7 @@ export const makeCliproxyApi = Effect.gen(function* () {
           plan: "Claude Subscription",
           usageLimits: claudeUsageResponseToLimits({
             checkedAt,
+            models: BUNDLED_CLAUDE_MODEL_CATALOG.models.map((entry) => entry.model),
             response: {
               rate_limits_available: true,
               rate_limits: {
