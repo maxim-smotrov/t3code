@@ -76,6 +76,33 @@ describe("applyUsageLimitsUpdate", () => {
       resetCredits,
     });
   });
+
+  it("updates and retains window model slugs without changing the page fields", () => {
+    const modelSlugs = ["claude-fable-5-1", "claude-fable-5"];
+    const next = applyUsageLimitsUpdate({
+      previous: published,
+      checkedAt,
+      update: { windows: [{ ...weekly, modelSlugs }] },
+    });
+    expect(next).toEqual({ ...published, windows: [session, { ...weekly, modelSlugs }] });
+    expect(
+      applyUsageLimitsUpdate({ previous: next, checkedAt, update: { windows: [weekly] } }),
+    ).toBe(next);
+    expect(
+      applyUsageLimitsUpdate({
+        previous: next,
+        checkedAt,
+        update: { windows: [{ ...weekly, modelSlugs: [...modelSlugs] }] },
+      }),
+    ).toBe(next);
+    expect(
+      applyUsageLimitsUpdate({
+        previous: next,
+        checkedAt,
+        update: { windows: [{ ...weekly, usedPercent: 30 }] },
+      })?.windows[1],
+    ).toEqual({ ...weekly, modelSlugs, usedPercent: 30 });
+  });
 });
 
 describe("resolveUsageLimitsAfterProbe", () => {
