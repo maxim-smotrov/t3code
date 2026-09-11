@@ -160,6 +160,26 @@ describe("server config forward compatibility", () => {
     expect(parsed).toEqual([decodedBase]);
   });
 
+  it("decodes numeric quota readings with optional model slugs", () => {
+    const numericWindow = { id: "primary", kind: "session", label: "Session", usedPercent: 12 };
+    const scopedWindow = {
+      id: "seven_day_opus",
+      kind: "weekly",
+      label: "Weekly (Opus)",
+      usedPercent: 100,
+      modelSlugs: ["claude-opus-5"],
+      resetsAt: "2026-04-12T00:00:00.000Z",
+    };
+    const parsed = decodeServerProvider({
+      ...baseProviderSnapshot,
+      usageLimits: {
+        checkedAt: "2026-04-10T00:00:00.000Z",
+        windows: [numericWindow, scopedWindow],
+      },
+    });
+    expect(parsed.usageLimits?.windows).toEqual([numericWindow, scopedWindow]);
+  });
+
   it("drops usage windows this build cannot decode instead of failing the provider", () => {
     const parsed = decodeServerProvider({
       ...baseProviderSnapshot,
@@ -169,6 +189,8 @@ describe("server config forward compatibility", () => {
           { id: "primary", kind: "session", label: "Session", usedPercent: 12 },
           { id: "future", kind: "some-future-kind", label: "Future", usedPercent: 1 },
           { id: "bad", kind: "weekly", label: "Weekly", usedPercent: 120 },
+          { id: "unknown", kind: "weekly", label: "Weekly", usedPercent: null },
+          { id: "missing", kind: "weekly", label: "Weekly" },
         ],
       },
     });
