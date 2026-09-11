@@ -13,6 +13,7 @@
 import type { SDKControlGetUsageResponse, SDKRateLimitInfo } from "@anthropic-ai/claude-agent-sdk";
 import type {
   ProviderUsageLimitsUpdate,
+  ServerProviderModel,
   ServerProviderUsageLimits,
   ServerProviderUsageWindow,
 } from "@t3tools/contracts";
@@ -39,7 +40,11 @@ const WEEK_MINS = 7 * 24 * 60;
 const WINDOWS: Readonly<
   Record<string, Pick<ServerProviderUsageWindow, "kind" | "label" | "windowDurationMins">>
 > = {
-  five_hour: { kind: "session", label: "Session", windowDurationMins: SESSION_MINS },
+  five_hour: {
+    kind: "session",
+    label: "Session",
+    windowDurationMins: SESSION_MINS,
+  },
   seven_day: { kind: "weekly", label: "Weekly", windowDurationMins: WEEK_MINS },
 };
 
@@ -47,32 +52,63 @@ const WINDOWS: Readonly<
  * The streamed event names the overage-included bucket by type
  * (`seven_day_overage_included`), while `get_usage` names it by the model's
  * `display_name`. Which model that is changes over time, so the probe records
- * the name it saw and the event mapper reuses it; the mid-turn update then
+ * the bucket it saw and the event mapper reuses it; the mid-turn update then
  * lands on the row the probe drew instead of opening a second one.
  */
 const OVERAGE_INCLUDED_EVENT_TYPE = "seven_day_overage_included";
 
+export interface ClaudeScopedBucket {
+  readonly displayName: string;
+  readonly modelSlugs: ReadonlyArray<string>;
+}
+
 export interface ClaudeScopedLimitNames {
-  readonly overageIncluded: string | undefined;
+  readonly overageIncluded: ClaudeScopedBucket | undefined;
 }
 
 export const makeClaudeScopedLimitNames = Ref.make<ClaudeScopedLimitNames>({
   overageIncluded: undefined,
 });
 
+type ClaudeModelName = Pick<ServerProviderModel, "slug" | "name">;
+
 function scopedWindowId(displayName: string): string {
   return `seven_day_${displayName.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
 }
 
-function scopedWindow(
+function nameTokens(name: string): ReadonlyArray<string> {
+  return name
+    .toLowerCase()
+    .split(/[^a-z0-9.]+/)
+    .filter((token) => token.length > 0);
+}
+
+function bucketModelSlugs(
   displayName: string,
+  models: ReadonlyArray<ClaudeModelName>,
+): ReadonlyArray<string> {
+  const label = nameTokens(displayName);
+  if (label.length === 0) return [];
+  return models
+    .filter((model) => {
+      const tokens = nameTokens(model.name);
+      return tokens.some((_, start) =>
+        label.every((token, offset) => tokens[start + offset] === token),
+      );
+    })
+    .map((model) => model.slug);
+}
+
+function scopedWindow(
+  bucket: ClaudeScopedBucket,
   usedPercent: number,
   resetsAt: string | undefined,
 ): ServerProviderUsageWindow {
   return {
-    id: scopedWindowId(displayName),
+    id: scopedWindowId(bucket.displayName),
     kind: "weekly",
-    label: `Weekly · ${displayName}`,
+    label: `Weekly · ${bucket.displayName}`,
+    modelSlugs: bucket.modelSlugs,
     windowDurationMins: WEEK_MINS,
     usedPercent: clampPercent(usedPercent),
     ...(resetsAt ? { resetsAt } : {}),
@@ -145,19 +181,25 @@ export function claudeRateLimitEventToUpdate(
     return { windows: [makeWindow(type, usedPercent, resetsAt)] };
   }
   if (type === OVERAGE_INCLUDED_EVENT_TYPE && names.overageIncluded) {
-    return { windows: [scopedWindow(names.overageIncluded, usedPercent, resetsAt)] };
+    return {
+      windows: [scopedWindow(names.overageIncluded, usedPercent, resetsAt)],
+    };
   }
   return undefined;
 }
 
 /**
  * Percentages on the `get_usage` response are already 0–100. Also yields the
- * scoped-bucket names the response carried, for the event mapper to reuse.
+ * scoped buckets the response carried, for the event mapper to reuse.
  */
 export function claudeUsageResponseToLimits(input: {
   readonly response: Pick<SDKControlGetUsageResponse, "rate_limits_available" | "rate_limits">;
   readonly checkedAt: string;
-}): { readonly limits: ServerProviderUsageLimits; readonly names: ClaudeScopedLimitNames } {
+  readonly models: ReadonlyArray<ClaudeModelName>;
+}): {
+  readonly limits: ServerProviderUsageLimits;
+  readonly names: ClaudeScopedLimitNames;
+} {
   const { response, checkedAt } = input;
   if (!response.rate_limits_available || !response.rate_limits) {
     return {
@@ -173,15 +215,17 @@ export function claudeUsageResponseToLimits(input: {
   }
   // The CLI filters `model_scoped` to the overage-included allowlist, which
   // today holds one model; the first entry is the one the event refers to.
-  let overageIncluded: string | undefined;
+  let overageIncluded: ClaudeScopedBucket | undefined;
   for (const entry of readModelScoped(response.rate_limits)) {
     if (typeof entry.utilization !== "number") continue;
-    windows.push(
-      scopedWindow(entry.display_name, entry.utilization, isoFromString(entry.resets_at)),
-    );
+    const bucket = {
+      displayName: entry.display_name,
+      modelSlugs: bucketModelSlugs(entry.display_name, input.models),
+    };
+    windows.push(scopedWindow(bucket, entry.utilization, isoFromString(entry.resets_at)));
     // Only a bucket that drew a row may receive events; naming one that was
     // skipped would let a mid-turn event open a row the probe never showed.
-    overageIncluded ??= entry.display_name;
+    overageIncluded ??= bucket;
   }
   return {
     limits: makeUsageLimits({ checkedAt, windows }),
