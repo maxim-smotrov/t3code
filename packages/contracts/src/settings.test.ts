@@ -627,6 +627,15 @@ describe("ClientSettings follow-up behavior", () => {
   });
 });
 
+describe("ClientSettings plan limits gauge", () => {
+  it("shows by default and accepts opting out", () => {
+    expect(decodeClientSettings({}).planLimitsGaugeEnabled).toBe(true);
+    expect(
+      decodeClientSettingsPatch({ planLimitsGaugeEnabled: false }).planLimitsGaugeEnabled,
+    ).toBe(false);
+  });
+});
+
 describe("ClientSettings composer collapse", () => {
   it("collapses on scroll by default and accepts opting out", () => {
     expect(decodeClientSettings({}).composerCollapseOnScroll).toBe(true);

@@ -370,6 +370,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["queue steer running turn send default behavior composer"],
   },
   {
+    id: "plan-limits-gauge",
+    title: "Plan limits gauge",
+    to: "/settings/general",
+    searchTerms: ["composer usage quota rate limit subscription remaining reset meter"],
+  },
+  {
     id: "provider-update-checks",
     title: "Provider update checks",
     to: "/settings/general",

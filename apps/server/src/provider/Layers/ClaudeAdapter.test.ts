@@ -1457,7 +1457,9 @@ describe("ClaudeAdapterLive", () => {
       assert.deepStrictEqual(limitsUpdates(yield* Fiber.join(firstTurnFiber)), []);
 
       // The status probe reads `get_usage` and records the model it saw.
-      yield* Ref.set(scopedLimitNames, { overageIncluded: "Fable" });
+      yield* Ref.set(scopedLimitNames, {
+        overageIncluded: { displayName: "Fable", modelSlugs: ["claude-fable-5"] },
+      });
       const secondTurnFiber = yield* adapter.streamEvents.pipe(
         Stream.takeUntil((event) => event.type === "turn.completed"),
         Stream.runCollect,
@@ -1473,6 +1475,7 @@ describe("ClaudeAdapterLive", () => {
               id: "seven_day_fable",
               kind: "weekly",
               label: "Weekly · Fable",
+              modelSlugs: ["claude-fable-5"],
               usedPercent: 40,
               windowDurationMins: 10_080,
             },
@@ -5014,7 +5017,9 @@ describe("ClaudeAdapterLive", () => {
         [],
       );
 
-      yield* Ref.set(scopedLimitNames, { overageIncluded: "Model A" });
+      yield* Ref.set(scopedLimitNames, {
+        overageIncluded: { displayName: "Model A", modelSlugs: [] },
+      });
       const nowMs = yield* Clock.currentTimeMillis;
       harness.query.emit({
         type: "rate_limit_event",
