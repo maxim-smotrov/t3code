@@ -1519,6 +1519,37 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     ),
   );
 
+  it.effect("signs fork builds under an overridden app ID", () =>
+    Effect.gen(function* () {
+      const config = yield* createBuildConfig("mac", "zip", "1.2.3", true, false, undefined, {
+        entitlementsPath: "/tmp/entitlements.mac.plist",
+        provisioningProfilePath: "/tmp/fork.provisionprofile",
+      });
+      const passkeySigning = resolveMacPasskeySigningConfiguration({
+        T3CODE_DESKTOP_APP_ID: "dev.example.t3code",
+        T3CODE_APPLE_TEAM_ID: "ABC1234567",
+        T3CODE_MACOS_PROVISIONING_PROFILE: "/tmp/fork.provisionprofile",
+        T3CODE_CLERK_PASSKEY_RP_DOMAINS: "clerk.example.com",
+      });
+
+      assert.equal(config.appId, "dev.example.t3code");
+      assert.equal(passkeySigning.appId, "dev.example.t3code");
+      assert.include(
+        renderMacPasskeyEntitlements(passkeySigning, {
+          touchIdKeychainAccessGroup: undefined,
+          browserPasskeys: false,
+        }),
+        "<string>ABC1234567.dev.example.t3code</string>",
+      );
+    }).pipe(
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnv({ env: { T3CODE_DESKTOP_APP_ID: "dev.example.t3code" } }),
+        ),
+      ),
+    ),
+  );
+
   it("parses Windows bsdtar member listings with CRLF line endings", () => {
     assert.deepStrictEqual(
       parseWslRuntimeArchiveMembers("./t3-1.2.3-linux-x64/t3\r\nt3-1.2.3-linux-x64/client/\r\n"),
