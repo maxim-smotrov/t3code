@@ -17,7 +17,7 @@ import {
   paceOf,
   remainingPercent,
 } from "@t3tools/shared/usageLimits";
-import { GaugeIcon, TrendingDownIcon, TrendingUpIcon } from "lucide-react";
+import { ArrowBigDownDashIcon, ArrowBigUpDashIcon, EqualApproximatelyIcon } from "lucide-react";
 import { Fragment, type ReactNode, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
@@ -40,10 +40,19 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { UsageLimitsPooled } from "./UsageLimitsPooled";
 import { PROVIDER_PRESENTATION } from "./usageProviders";
 
-const PACE: Record<LimitPace, { readonly label: string; readonly icon: typeof GaugeIcon }> = {
-  ahead: { label: "Ahead of pace: spending faster than the window elapses", icon: TrendingUpIcon },
-  on: { label: "On pace with the window", icon: GaugeIcon },
-  under: { label: "Under pace: headroom left for the rest of the window", icon: TrendingDownIcon },
+const PACE: Record<
+  LimitPace,
+  { readonly label: string; readonly icon: typeof EqualApproximatelyIcon }
+> = {
+  ahead: {
+    label: "Ahead of pace: spending faster than the window elapses",
+    icon: ArrowBigUpDashIcon,
+  },
+  on: { label: "On pace with the window", icon: EqualApproximatelyIcon },
+  under: {
+    label: "Under pace: headroom left for the rest of the window",
+    icon: ArrowBigDownDashIcon,
+  },
 };
 
 /** The series colour the cost chart uses for this driver, so the two views read as one. */
