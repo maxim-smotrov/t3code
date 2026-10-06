@@ -85,10 +85,10 @@ describe("buildPlanLimitDisplayWindows", () => {
     expect(windows.map((window) => window.remainingPercent)).toEqual([84, 0]);
   });
 
-  it("rounds the remaining percentage to one decimal place", () => {
+  it("rounds the remaining percentage like the Usage page does", () => {
     const windows = planLimitDisplayWindows(makeLimits([makeWindow("session", 64.1, 300)]));
 
-    expect(windows[0]?.remainingPercent).toBe(35.9);
+    expect(windows[0]?.remainingPercent).toBe(36);
   });
 
   it("clamps a percentage the provider sent out of range", () => {

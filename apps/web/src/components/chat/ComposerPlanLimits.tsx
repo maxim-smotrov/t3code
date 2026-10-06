@@ -1,8 +1,5 @@
-import type {
-  EnvironmentId,
-  ProviderInstanceId,
-  ServerProviderUsageLimits,
-} from "@t3tools/contracts";
+import { refreshUsageLimits } from "@t3tools/client-runtime/state/usage";
+import type { EnvironmentId, ServerProviderUsageLimits } from "@t3tools/contracts";
 import { useCallback, useEffect, useState } from "react";
 
 import { serverEnvironment } from "../../state/server";
@@ -34,13 +31,11 @@ const IDLE_TICK_MS = 30_000;
  */
 export function ComposerPlanLimits({
   environmentId,
-  instanceId,
   limits,
   model,
   title,
 }: {
   readonly environmentId: EnvironmentId;
-  readonly instanceId: ProviderInstanceId;
   readonly limits: ServerProviderUsageLimits;
   readonly model: string | null;
   readonly title: PlanLimitsTitle;
@@ -48,12 +43,11 @@ export function ComposerPlanLimits({
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders);
   const [refreshing, setRefreshing] = useState(false);
   const refresh = useCallback(() => {
-    if (refreshing) return;
     setRefreshing(true);
-    void refreshProviders({ environmentId, input: { instanceId } }).finally(() =>
-      setRefreshing(false),
-    );
-  }, [environmentId, instanceId, refreshProviders, refreshing]);
+    void refreshUsageLimits(environmentId, () =>
+      refreshProviders({ environmentId, input: {} }),
+    ).finally(() => setRefreshing(false));
+  }, [environmentId, refreshProviders]);
 
   const { arc, needle } = planLimitGauge(limits, model);
   const windows = planLimitDisplayWindows(limits);
@@ -77,7 +71,7 @@ export function ComposerPlanLimits({
   const summary = windows
     .map(
       (window) =>
-        `${window.title} ${Math.round(window.remainingPercent)}% left${window.status === "ok" ? "" : `, ${window.status}`}`,
+        `${window.title} ${window.remainingPercent}% left${window.status === "ok" ? "" : `, ${window.status}`}`,
     )
     .join(", ");
 
@@ -91,7 +85,7 @@ export function ComposerPlanLimits({
           <Button
             size="icon-sm"
             variant="ghost-muted"
-            className="size-7 rounded-lg hover:text-muted-foreground data-pressed:text-muted-foreground"
+            className="size-7"
             aria-label={`${planLimitsTitleText(title)}: ${summary}`}
           >
             <span
@@ -138,7 +132,7 @@ export function ComposerPlanLimits({
             </span>
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 bottom-0.75 text-center font-semibold text-[7px] leading-none tabular-nums text-muted-foreground transition-opacity duration-500 ease-out motion-reduce:transition-none"
+              className="absolute inset-x-0 bottom-0.75 text-center font-semibold text-5xs tabular-nums text-muted-foreground transition-opacity duration-500 ease-out motion-reduce:transition-none"
               style={{ opacity: countdown === null ? 0 : 1 }}
             >
               {countdown ?? ""}

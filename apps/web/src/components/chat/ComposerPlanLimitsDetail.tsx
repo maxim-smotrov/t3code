@@ -43,7 +43,7 @@ export function ComposerPlanLimitsDetail({
           onClick={onRefresh}
           disabled={refreshing}
           aria-label={refreshing ? "Refreshing limits" : "Refresh limits"}
-          className="flex items-center gap-1 rounded text-secondary-label text-[11px] hover:text-foreground disabled:hover:text-secondary-label"
+          className="flex items-center gap-1 rounded text-secondary-label text-2xs hover:text-foreground disabled:hover:text-secondary-label"
         >
           {formatRelativeTimeLabel(limits.checkedAt)}
           <RefreshCwIcon
@@ -57,7 +57,7 @@ export function ComposerPlanLimitsDetail({
         const reset = window.resetsAt === null ? null : formatResetIn(window.resetsAt, nowMs);
         return (
           <div key={window.key} className="flex flex-col gap-1">
-            <div className="flex items-baseline justify-between gap-3 text-[11px] leading-4">
+            <div className="flex items-baseline justify-between gap-3 text-2xs leading-4">
               <span className="text-secondary-label">{window.title}</span>
               <span
                 className={`font-medium tabular-nums ${
@@ -78,7 +78,7 @@ export function ComposerPlanLimitsDetail({
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={Math.round(window.remainingPercent)}
+              aria-valuenow={window.remainingPercent}
               aria-label={`${window.title} remaining`}
             >
               <div
@@ -89,9 +89,7 @@ export function ComposerPlanLimitsDetail({
                 }}
               />
             </div>
-            {reset === null ? null : (
-              <div className="text-[11px] text-secondary-label">{reset}</div>
-            )}
+            {reset === null ? null : <div className="text-2xs text-secondary-label">{reset}</div>}
           </div>
         );
       })}

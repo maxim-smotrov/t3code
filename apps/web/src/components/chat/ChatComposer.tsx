@@ -1360,7 +1360,6 @@ const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryActions(
   reserveContextWindowMeter: boolean;
   planLimits: {
     readonly environmentId: EnvironmentId;
-    readonly instanceId: ProviderInstanceId;
     readonly limits: ServerProviderUsageLimits;
     readonly title: PlanLimitsTitle;
   } | null;
@@ -1404,7 +1403,6 @@ const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryActions(
       {props.planLimits ? (
         <ComposerPlanLimits
           environmentId={props.planLimits.environmentId}
-          instanceId={props.planLimits.instanceId}
           limits={props.planLimits.limits}
           model={props.planLimitsModel}
           title={props.planLimits.title}
@@ -2190,7 +2188,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         ? null
         : {
             environmentId,
-            instanceId: selectedProviderEntry.instanceId,
             limits: selectedPlanLimits,
             title: planLimitsTitle(selectedProviderEntry, providerInstanceEntries),
           },
