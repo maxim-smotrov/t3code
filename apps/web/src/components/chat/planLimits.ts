@@ -21,6 +21,7 @@ interface PlanLimitDisplayWindow {
   readonly kind: ServerProviderUsageWindow["kind"];
   readonly windowMinutes: number | null;
   readonly modelSlugs: ReadonlyArray<string> | null;
+  readonly source: ServerProviderUsageWindow;
 }
 
 const MINUTES_PER_HOUR = 60;
@@ -74,6 +75,7 @@ export function planLimitDisplayWindows(
         kind: window.kind,
         windowMinutes: window.windowDurationMins ?? null,
         modelSlugs: window.modelSlugs ?? null,
+        source: window,
         status:
           window.usedPercent >= 100
             ? "exhausted"
