@@ -2029,7 +2029,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       ? null
       : {
           environmentId,
-          instanceId: selectedProviderEntry.instanceId,
           limits: selectedPlanLimits,
           title: planLimitsTitle(selectedProviderEntry, providerInstanceEntries),
         };

@@ -158,7 +158,6 @@ export const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryA
   reserveContextWindowMeter: boolean;
   planLimits: {
     readonly environmentId: EnvironmentId;
-    readonly instanceId: ProviderInstanceId;
     readonly limits: ServerProviderUsageLimits;
     readonly title: PlanLimitsTitle;
   } | null;
@@ -204,7 +203,6 @@ export const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryA
       {props.planLimits ? (
         <ComposerPlanLimits
           environmentId={props.planLimits.environmentId}
-          instanceId={props.planLimits.instanceId}
           limits={props.planLimits.limits}
           model={props.planLimitsModel}
           title={props.planLimits.title}
