@@ -1,8 +1,10 @@
 import type { ServerProviderUsageLimits } from "@t3tools/contracts";
+import { paceOf } from "@t3tools/shared/usageLimits";
 import { RefreshCwIcon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
+import { PaceIcon } from "../usage/UsageLimits";
 import {
   formatResetIn,
   planLimitDisplayWindows,
@@ -55,6 +57,7 @@ export function ComposerPlanLimitsDetail({
 
       {planLimitDisplayWindows(limits).map((window) => {
         const reset = window.resetsAt === null ? null : formatResetIn(window.resetsAt, nowMs);
+        const pace = paceOf(window.source, nowMs);
         return (
           <div key={window.key} className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between gap-3 text-2xs leading-4">
@@ -89,7 +92,12 @@ export function ComposerPlanLimitsDetail({
                 }}
               />
             </div>
-            {reset === null ? null : <div className="text-2xs text-secondary-label">{reset}</div>}
+            {reset === null ? null : (
+              <div className="flex items-center justify-between gap-3 text-2xs text-secondary-label">
+                {reset}
+                {pace === null ? null : <PaceIcon pace={pace} />}
+              </div>
+            )}
           </div>
         );
       })}
