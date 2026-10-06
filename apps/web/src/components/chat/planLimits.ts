@@ -5,6 +5,7 @@
  */
 import { PROVIDER_DISPLAY_NAMES } from "@t3tools/contracts";
 import type { ServerProviderUsageWindow, ServerProviderUsageLimits } from "@t3tools/contracts";
+import { remainingPercent } from "@t3tools/shared/usageLimits";
 
 import type { ProviderInstanceEntry } from "../../providerInstances";
 import { formatProviderDriverKindLabel } from "../../providerModels";
@@ -64,8 +65,7 @@ export function planLimitDisplayWindows(
         (a.windowDurationMins ?? 0) - (b.windowDurationMins ?? 0) || a.label.localeCompare(b.label),
     )
     .map((window) => {
-      const usedPercent = Math.min(100, Math.max(0, window.usedPercent));
-      const remaining = Math.round((100 - usedPercent) * 10) / 10;
+      const remaining = remainingPercent(window);
       return {
         key: window.id,
         title: planLimitWindowTitle(window),
@@ -75,7 +75,7 @@ export function planLimitDisplayWindows(
         windowMinutes: window.windowDurationMins ?? null,
         modelSlugs: window.modelSlugs ?? null,
         status:
-          usedPercent === 100
+          window.usedPercent >= 100
             ? "exhausted"
             : remaining < WARNING_REMAINING_PERCENT
               ? "warning"
