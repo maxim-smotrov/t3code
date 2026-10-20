@@ -1,12 +1,11 @@
 import type { ServerProviderUsageLimits } from "@t3tools/contracts";
-import { paceOf } from "@t3tools/shared/usageLimits";
+import { formatResetsIn, paceOf } from "@t3tools/shared/usageLimits";
 import { RefreshCwIcon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
 import { PaceIcon } from "../usage/UsageLimits";
 import {
-  formatResetIn,
   planLimitDisplayWindows,
   planLimitColor,
   planLimitTrackColor,
@@ -56,7 +55,7 @@ export function ComposerPlanLimitsDetail({
       </div>
 
       {planLimitDisplayWindows(limits).map((window) => {
-        const reset = window.resetsAt === null ? null : formatResetIn(window.resetsAt, nowMs);
+        const reset = formatResetsIn(window.source, nowMs);
         const pace = paceOf(window.source, nowMs);
         return (
           <div key={window.key} className="flex flex-col gap-1">
