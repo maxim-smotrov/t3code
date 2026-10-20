@@ -202,27 +202,7 @@ export function planLimitsTitleText(title: PlanLimitsTitle): string {
   return `${title.kind === "provider" ? title.label : title.name} limits`;
 }
 
-/**
- * A wait as the largest two units that still say something, e.g. `3h 20m`,
- * `2d 4h`, `42m`..
- */
-export function formatCountdown(remainingMs: number): string {
-  const minutes = Math.floor(remainingMs / 60_000);
-  if (minutes < 1) return "<1m";
-  if (minutes < 60) return `${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    const remainderMinutes = minutes % 60;
-    return remainderMinutes === 0 ? `${hours}h` : `${hours}h ${remainderMinutes}m`;
-  }
-
-  const days = Math.floor(hours / 24);
-  const remainderHours = hours % 24;
-  return remainderHours === 0 ? `${days}d` : `${days}d ${remainderHours}h`;
-}
-
-/** A wait in one unit for spots too small for {@link formatCountdown}. */
+/** A wait in one unit, for the label under the gauge. */
 export function formatCountdownBound(remainingMs: number): string {
   const seconds = Math.ceil(remainingMs / 1_000);
   if (seconds < 60) return `${Math.max(seconds, 1)}s`;
@@ -242,17 +222,4 @@ export function countdownBoundHoldMs(remainingMs: number): number {
   const step = remainingMs <= 60_000 ? 1_000 : 60_000;
   const untilBoundary = remainingMs % step;
   return untilBoundary === 0 ? step : untilBoundary;
-}
-
-/** Countdown to a quota window rolling over, e.g. `resets in 3h 20m`. */
-export function formatResetIn(resetsAt: string, nowMs: number = Date.now()): string | null {
-  const target = Date.parse(resetsAt);
-  if (Number.isNaN(target)) return null;
-
-  const remainingMs = target - nowMs;
-  // A window whose reset has passed but whose snapshot predates it: the
-  // provider simply has not told us the new numbers yet.
-  if (remainingMs <= 0) return "resets soon";
-  if (remainingMs < 60_000) return "resets in under a minute";
-  return `resets in ${formatCountdown(remainingMs)}`;
 }
