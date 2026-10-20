@@ -1,5 +1,5 @@
 import type { ServerProviderUsageLimits } from "@t3tools/contracts";
-import { formatResetsIn, paceOf } from "@t3tools/shared/usageLimits";
+import { formatResetsIn, paceOf, paceRemainingPercent } from "@t3tools/shared/usageLimits";
 import { RefreshCwIcon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
@@ -57,6 +57,7 @@ export function ComposerPlanLimitsDetail({
       {planLimitDisplayWindows(limits).map((window) => {
         const reset = formatResetsIn(window.source, nowMs);
         const pace = paceOf(window.source, nowMs);
+        const timeLeft = paceRemainingPercent(window.source, nowMs);
         return (
           <div key={window.key} className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between gap-3 text-2xs leading-4">
@@ -75,21 +76,35 @@ export function ComposerPlanLimitsDetail({
               </span>
             </div>
             <div
-              className="h-1.5 w-full overflow-hidden rounded-full"
-              style={{ backgroundColor: planLimitTrackColor("ok") }}
+              className="relative h-1.5 w-full"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={window.remainingPercent}
               aria-label={`${window.title} remaining`}
+              aria-valuetext={`${window.remainingPercent}% left${
+                timeLeft === null ? "" : `, ${timeLeft}% of the window left`
+              }`}
             >
               <div
-                className="h-full rounded-full transition-[width,background-color] duration-500 ease-out motion-reduce:transition-none"
-                style={{
-                  width: `${window.remainingPercent}%`,
-                  backgroundColor: planLimitColor(window.status),
-                }}
-              />
+                className="h-full overflow-hidden rounded-full"
+                style={{ backgroundColor: planLimitTrackColor("ok") }}
+              >
+                <div
+                  className="h-full rounded-full transition-[width,background-color] duration-500 ease-out motion-reduce:transition-none"
+                  style={{
+                    width: `${window.remainingPercent}%`,
+                    backgroundColor: planLimitColor(window.status),
+                  }}
+                />
+              </div>
+              {timeLeft === null ? null : (
+                <span
+                  aria-hidden
+                  className="absolute -inset-y-0.5 w-px -translate-x-1/2 bg-foreground/60"
+                  style={{ left: `${timeLeft}%` }}
+                />
+              )}
             </div>
             {reset === null ? null : (
               <div className="flex items-center justify-between gap-3 text-2xs text-secondary-label">
