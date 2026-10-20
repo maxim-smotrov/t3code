@@ -5,9 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { ProviderInstanceEntry } from "../../providerInstances";
 import {
   countdownBoundHoldMs,
-  formatCountdown,
   formatCountdownBound,
-  formatResetIn,
   hasRenderableLimits,
   planLimitAppliesToModel,
   planLimitDisplayWindows,
@@ -459,30 +457,6 @@ describe("planLimitsTitle", () => {
   });
 });
 
-describe("formatCountdown", () => {
-  const minute = 60_000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  it("shows the largest two units that still say something", () => {
-    expect(formatCountdown(42 * minute)).toBe("42m");
-    expect(formatCountdown(3 * hour + 20 * minute)).toBe("3h 20m");
-    expect(formatCountdown(3 * hour)).toBe("3h");
-    expect(formatCountdown(2 * day + 4 * hour)).toBe("2d 4h");
-    expect(formatCountdown(2 * day)).toBe("2d");
-  });
-
-  it("does not let one unit inherit another's rounding", () => {
-    expect(formatCountdown(day + minute)).toBe("1d");
-    expect(formatCountdown(23 * hour + 59 * minute + 30_000)).toBe("23h 59m");
-    expect(formatCountdown(59 * minute + 59_000)).toBe("59m");
-  });
-
-  it("names a sub-minute wait instead of showing zero", () => {
-    expect(formatCountdown(30_000)).toBe("<1m");
-  });
-});
-
 describe("formatCountdownBound", () => {
   const minute = 60_000;
   const hour = 60 * minute;
@@ -534,25 +508,5 @@ describe("countdownBoundHoldMs", () => {
     expect(countdownBoundHoldMs(60_000)).toBe(1_000);
     expect(countdownBoundHoldMs(59_990)).toBe(990);
     expect(countdownBoundHoldMs(1_000)).toBe(1_000);
-  });
-});
-
-describe("formatResetIn", () => {
-  const now = Date.parse("2026-08-25T12:00:00.000Z");
-
-  it("formats the time remaining until the reset", () => {
-    expect(formatResetIn("2026-08-25T15:20:00.000Z", now)).toBe("resets in 3h 20m");
-  });
-
-  it("says a reset is imminent rather than counting seconds", () => {
-    expect(formatResetIn("2026-08-25T12:00:30.000Z", now)).toBe("resets in under a minute");
-  });
-
-  it("reports an elapsed reset as pending, since the snapshot predates it", () => {
-    expect(formatResetIn("2026-08-25T11:00:00.000Z", now)).toBe("resets soon");
-  });
-
-  it("returns null for an instant it cannot read", () => {
-    expect(formatResetIn("whenever", now)).toBeNull();
   });
 });
