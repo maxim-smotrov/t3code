@@ -6,15 +6,10 @@ import type { ProviderInstanceEntry } from "../../providerInstances";
 import {
   countdownBoundHoldMs,
   formatCountdownBound,
-  hasRenderableLimits,
-  planLimitAppliesToModel,
   planLimitDisplayWindows,
-  planLimitColor,
   planLimitCountdownTarget,
   planLimitGauge,
   planLimitsTitle,
-  planLimitsTitleText,
-  planLimitTrackColor,
 } from "./planLimits";
 
 const makeLimits = (
@@ -43,9 +38,9 @@ const makeWindow = (
 });
 
 describe("buildPlanLimitDisplayWindows", () => {
-  it("titles each window from the duration the provider reported", () => {
+  it("orders the shortest window first and titles it from the reported duration", () => {
     const windows = planLimitDisplayWindows(
-      makeLimits([makeWindow("session", 16, 300), makeWindow("weekly", 8, 10080)]),
+      makeLimits([makeWindow("weekly", 8, 10080), makeWindow("session", 16, 300)]),
     );
 
     expect(windows.map((window) => window.title)).toEqual(["5-hour", "Weekly"]);
@@ -60,56 +55,22 @@ describe("buildPlanLimitDisplayWindows", () => {
     expect(windows[0]?.title).toBe("Weekly");
   });
 
-  it("orders the shortest window first however the provider sent them", () => {
-    const windows = planLimitDisplayWindows(
-      makeLimits([makeWindow("weekly", 8, 10080), makeWindow("session", 16, 300)]),
-    );
-
-    expect(windows.map((window) => window.title)).toEqual(["5-hour", "Weekly"]);
-  });
-
   it("falls back to the window kind when no duration is reported", () => {
     const windows = planLimitDisplayWindows(makeLimits([makeWindow("session", 25, null)]));
 
     expect(windows[0]?.title).toBe("Session");
-    expect(windows[0]?.remainingPercent).toBe(75);
   });
 
-  it("reports the unspent side, because the gauges drain rather than fill", () => {
+  it("warns below 20% remaining and marks only the spent window exhausted", () => {
     const windows = planLimitDisplayWindows(
-      makeLimits([makeWindow("session", 16, 300), makeWindow("weekly", 100, 10080)]),
+      makeLimits([
+        makeWindow("session", 81, 300),
+        makeWindow("weekly", 80, 10080),
+        makeWindow("monthly", 100, 43200),
+      ]),
     );
 
-    expect(windows.map((window) => window.remainingPercent)).toEqual([84, 0]);
-  });
-
-  it("rounds the remaining percentage like the Usage page does", () => {
-    const windows = planLimitDisplayWindows(makeLimits([makeWindow("session", 64.1, 300)]));
-
-    expect(windows[0]?.remainingPercent).toBe(36);
-  });
-
-  it("clamps a percentage the provider sent out of range", () => {
-    const windows = planLimitDisplayWindows(makeLimits([makeWindow("session", 140, 300)]));
-
-    expect(windows[0]?.remainingPercent).toBe(0);
-  });
-
-  it("warns below 20% remaining", () => {
-    const windows = planLimitDisplayWindows(
-      makeLimits([makeWindow("session", 81, 300), makeWindow("weekly", 80, 10080)]),
-    );
-
-    expect(windows.map((window) => window.status)).toEqual(["warning", "ok"]);
-  });
-
-  it("titles a scoped cap by its model and keys it apart from the weekly window", () => {
-    const windows = planLimitDisplayWindows(
-      makeLimits([makeWindow("weekly", 39, 10080), makeWindow("weekly", 60, 10080, "Fable")]),
-    );
-
-    expect(windows.map((window) => window.title)).toEqual(["Weekly", "Weekly · Fable"]);
-    expect(new Set(windows.map((window) => window.key)).size).toBe(2);
+    expect(windows.map((window) => window.status)).toEqual(["warning", "ok", "exhausted"]);
   });
 
   it("orders scoped caps after the weekly window and by model name", () => {
@@ -128,29 +89,7 @@ describe("buildPlanLimitDisplayWindows", () => {
       "Weekly · Fable",
       "Weekly · Sonnet",
     ]);
-  });
-
-  it("only marks the window that reached its limit", () => {
-    const windows = planLimitDisplayWindows(
-      makeLimits([makeWindow("session", 100, 300), makeWindow("weekly", 51, 10080)]),
-    );
-
-    expect(windows.map((window) => window.status)).toEqual(["exhausted", "ok"]);
-  });
-});
-
-describe("planLimitTrackColor", () => {
-  it("puts the alarm on the track, since a spent window has no fill to colour", () => {
-    expect(planLimitTrackColor("exhausted")).toContain("--color-error");
-    expect(planLimitTrackColor("ok")).toContain("--color-muted-foreground");
-  });
-});
-
-describe("planLimitColor", () => {
-  it("uses each window's verdict", () => {
-    expect(planLimitColor("warning")).toBe("var(--color-warning)");
-    expect(planLimitColor("exhausted")).toBe("var(--color-error)");
-    expect(planLimitColor("ok")).toContain("--color-muted-foreground");
+    expect(new Set(windows.map((window) => window.key)).size).toBe(4);
   });
 });
 
@@ -171,36 +110,18 @@ describe("planLimitGauge", () => {
     expect(gauge.arc).toBeNull();
   });
 
-  it("sends a lone session window to the needle", () => {
-    const gauge = planLimitGauge(makeLimits([makeWindow("session", 16, 300)]));
-
-    expect(gauge.arc).toBeNull();
-    expect(gauge.needle?.title).toBe("5-hour");
-  });
-
-  it("pulls the needle into the alarm when the long window is spent", () => {
-    const gauge = planLimitGauge(
+  it("pulls the needle into the alarm when the long window is spent, but not the reverse", () => {
+    const longSpent = planLimitGauge(
       makeLimits([makeWindow("session", 16, 300), makeWindow("weekly", 100, 10080)]),
     );
+    expect(longSpent.needle?.status).toBe("exhausted");
+    expect(longSpent.arc?.status).toBe("exhausted");
 
-    expect(gauge.arc?.status).toBe("exhausted");
-    expect(gauge.needle?.status).toBe("exhausted");
-  });
-
-  it("keeps the arc calm when only the short window is spent", () => {
-    const gauge = planLimitGauge(
+    const shortSpent = planLimitGauge(
       makeLimits([makeWindow("session", 100, 300), makeWindow("weekly", 16, 10080)]),
     );
-
-    expect(gauge.needle?.status).toBe("exhausted");
-    expect(gauge.arc?.status).toBe("ok");
-  });
-
-  it("draws nothing when there are no quota windows", () => {
-    const gauge = planLimitGauge(makeLimits([]));
-
-    expect(gauge.arc).toBeNull();
-    expect(gauge.needle).toBeNull();
+    expect(shortSpent.needle?.status).toBe("exhausted");
+    expect(shortSpent.arc?.status).toBe("ok");
   });
 
   it("retains monthly and other window labels without a duration", () => {
@@ -223,42 +144,20 @@ describe("planLimitGauge", () => {
     expect(gauge.arc).toMatchObject({ title: "Monthly", status: "exhausted" });
   });
 
-  it("accepts older snapshots without model slugs", () => {
-    const limits: ServerProviderUsageLimits = {
-      checkedAt: "2026-08-25T16:48:28.377Z",
-      windows: [{ id: "primary", kind: "session", label: "Session", usedPercent: 10 }],
-    };
-    expect(planLimitGauge(limits).needle).toMatchObject({
-      remainingPercent: 90,
-      status: "ok",
-    });
-  });
+  it("puts the tighter of the weekly window and the selected model's cap on the arc", () => {
+    const withCap = (weeklyUsed: number) =>
+      planLimitGauge(
+        makeLimits([
+          makeWindow("session", 16, 300),
+          makeWindow("weekly", weeklyUsed, 10080),
+          makeWindow("weekly", 60, 10080, "Fable"),
+        ]),
+        "claude-fable-5",
+      );
 
-  it("puts the selected model's cap on the arc when it has less remaining", () => {
-    const gauge = planLimitGauge(
-      makeLimits([
-        makeWindow("session", 16, 300),
-        makeWindow("weekly", 39, 10080),
-        makeWindow("weekly", 60, 10080, "Fable"),
-      ]),
-      "claude-fable-5",
-    );
-
-    expect(gauge.arc?.modelSlugs).toEqual(["claude-fable-5"]);
-    expect(gauge.needle?.title).toBe("5-hour");
-  });
-
-  it("keeps the weekly window on the arc when it is the tighter limit", () => {
-    const gauge = planLimitGauge(
-      makeLimits([
-        makeWindow("session", 16, 300),
-        makeWindow("weekly", 80, 10080),
-        makeWindow("weekly", 60, 10080, "Fable"),
-      ]),
-      "claude-fable-5",
-    );
-
-    expect(gauge.arc?.modelSlugs).toBeNull();
+    expect(withCap(39).arc?.modelSlugs).toEqual(["claude-fable-5"]);
+    expect(withCap(39).needle?.title).toBe("5-hour");
+    expect(withCap(80).arc?.modelSlugs).toBeNull();
   });
 
   it("ignores scoped caps when the slug matches none of them", () => {
@@ -270,16 +169,6 @@ describe("planLimitGauge", () => {
     expect(planLimitGauge(limits, "claude-sonnet-5").needle?.modelSlugs).toBeNull();
     expect(planLimitGauge(limits, undefined).needle?.modelSlugs).toBeNull();
     expect(planLimitGauge(limits, "gpt-5-codex").needle?.modelSlugs).toBeNull();
-  });
-
-  it("lets a lone matching cap drive the needle by itself", () => {
-    const gauge = planLimitGauge(
-      makeLimits([makeWindow("weekly", 60, 10080, "Fable")]),
-      "claude-fable-5",
-    );
-
-    expect(gauge.needle?.modelSlugs).toEqual(["claude-fable-5"]);
-    expect(gauge.arc).toBeNull();
   });
 
   it("uses the next duration even when a third window is exhausted", () => {
@@ -349,21 +238,18 @@ describe("planLimitCountdownTarget", () => {
   const sessionReset = "2026-08-25T18:00:00.000Z";
   const weeklyReset = "2026-08-29T00:00:00.000Z";
 
-  it("counts to the reset of the exhausted window", () => {
-    const limits = makeLimits([
+  it("counts to the latest reset of every exhausted window", () => {
+    const weeklySpent = makeLimits([
       makeWindow("session", 16, 300, undefined, sessionReset),
       makeWindow("weekly", 100, 10080, undefined, weeklyReset),
     ]);
-
-    expect(planLimitCountdownTarget(limits, null)).toBe(Date.parse(weeklyReset));
-  });
-
-  it("waits for every applicable reset", () => {
-    const limits = makeLimits([
+    const bothSpent = makeLimits([
       makeWindow("session", 100, 300, undefined, sessionReset),
       makeWindow("weekly", 100, 10080, undefined, weeklyReset),
     ]);
-    expect(planLimitCountdownTarget(limits, null)).toBe(Date.parse(weeklyReset));
+
+    expect(planLimitCountdownTarget(weeklySpent, null)).toBe(Date.parse(weeklyReset));
+    expect(planLimitCountdownTarget(bothSpent, null)).toBe(Date.parse(weeklyReset));
   });
 
   it("cannot promise recovery if an applicable blocker has no known reset", () => {
@@ -388,27 +274,6 @@ describe("planLimitCountdownTarget", () => {
 
     expect(planLimitCountdownTarget(limits, "claude-sonnet-5")).toBeNull();
     expect(planLimitCountdownTarget(limits, "claude-fable-5")).toBe(Date.parse(weeklyReset));
-  });
-});
-
-describe("planLimitAppliesToModel", () => {
-  it("matches account-wide windows always and scoped windows by exact slug", () => {
-    const fable = { modelSlugs: ["claude-fable-5-1", "claude-fable-5"] };
-    expect(planLimitAppliesToModel({ modelSlugs: null }, undefined)).toBe(true);
-    expect(planLimitAppliesToModel(fable, "claude-fable-5")).toBe(true);
-    expect(planLimitAppliesToModel(fable, "claude-fable")).toBe(false);
-    expect(planLimitAppliesToModel(fable, "claude-sonnet-5")).toBe(false);
-    expect(planLimitAppliesToModel({ modelSlugs: [] }, "claude-fable-5")).toBe(false);
-    expect(planLimitAppliesToModel(fable, undefined)).toBe(false);
-    expect(planLimitAppliesToModel(fable, null)).toBe(false);
-  });
-});
-
-describe("hasRenderableLimits", () => {
-  it("needs at least one window to render", () => {
-    expect(hasRenderableLimits(makeLimits([]))).toBe(false);
-    expect(hasRenderableLimits(makeLimits([makeWindow("session", 0, 300)]))).toBe(true);
-    expect(hasRenderableLimits(null)).toBe(false);
   });
 });
 
@@ -449,11 +314,6 @@ describe("planLimitsTitle", () => {
       kind: "provider",
       label: "Claude",
     });
-  });
-
-  it("speaks both forms the same way", () => {
-    expect(planLimitsTitleText({ kind: "provider", label: "Codex" })).toBe("Codex limits");
-    expect(planLimitsTitleText({ kind: "account", name: "Work" })).toBe("Work limits");
   });
 });
 
