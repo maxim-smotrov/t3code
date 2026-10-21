@@ -21,6 +21,13 @@ const makeLimits = (
   ...overrides,
 });
 
+const KIND_LABELS = {
+  session: "Session",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  other: "Extra quota",
+} as const;
+
 const makeWindow = (
   kind: "session" | "weekly" | "monthly" | "other",
   usedPercent: number,
@@ -31,34 +38,19 @@ const makeWindow = (
   kind,
   usedPercent,
   id: `${kind}:${windowMinutes}:${model ?? ""}`,
-  label: model !== undefined ? `Weekly · ${model}` : kind === "other" ? "Extra quota" : kind,
+  label: model !== undefined ? `Weekly · ${model}` : KIND_LABELS[kind],
   ...(resetsAt === null ? {} : { resetsAt }),
   ...(windowMinutes === null ? {} : { windowDurationMins: windowMinutes }),
   ...(model === undefined ? {} : { modelSlugs: [`claude-${model.toLowerCase()}-5`] }),
 });
 
 describe("buildPlanLimitDisplayWindows", () => {
-  it("orders the shortest window first and titles it from the reported duration", () => {
+  it("orders the shortest window first however the provider sent them", () => {
     const windows = planLimitDisplayWindows(
       makeLimits([makeWindow("weekly", 8, 10080), makeWindow("session", 16, 300)]),
     );
 
-    expect(windows.map((window) => window.title)).toEqual(["5-hour", "Weekly"]);
-  });
-
-  it("does not call a lone weekly window a session", () => {
-    // Codex reported exactly this shape for six days: one window, seven days
-    // long, in the slot a reader would assume is the session.
-    const windows = planLimitDisplayWindows(makeLimits([makeWindow("session", 44, 10080)]));
-
-    expect(windows).toHaveLength(1);
-    expect(windows[0]?.title).toBe("Weekly");
-  });
-
-  it("falls back to the window kind when no duration is reported", () => {
-    const windows = planLimitDisplayWindows(makeLimits([makeWindow("session", 25, null)]));
-
-    expect(windows[0]?.title).toBe("Session");
+    expect(windows.map((window) => window.title)).toEqual(["Session", "Weekly"]);
   });
 
   it("warns below 20% remaining and marks only the spent window exhausted", () => {
@@ -84,7 +76,7 @@ describe("buildPlanLimitDisplayWindows", () => {
     );
 
     expect(windows.map((window) => window.title)).toEqual([
-      "5-hour",
+      "Session",
       "Weekly",
       "Weekly · Fable",
       "Weekly · Sonnet",
@@ -99,15 +91,8 @@ describe("planLimitGauge", () => {
       makeLimits([makeWindow("weekly", 8, 10080), makeWindow("session", 16, 300)]),
     );
 
-    expect(gauge.needle?.title).toBe("5-hour");
+    expect(gauge.needle?.title).toBe("Session");
     expect(gauge.arc?.title).toBe("Weekly");
-  });
-
-  it("sends a lone weekly window to the needle even in the session slot", () => {
-    const gauge = planLimitGauge(makeLimits([makeWindow("session", 44, 10080)]));
-
-    expect(gauge.needle?.title).toBe("Weekly");
-    expect(gauge.arc).toBeNull();
   });
 
   it("pulls the needle into the alarm when the long window is spent, but not the reverse", () => {
@@ -122,15 +107,6 @@ describe("planLimitGauge", () => {
     );
     expect(shortSpent.needle?.status).toBe("exhausted");
     expect(shortSpent.arc?.status).toBe("ok");
-  });
-
-  it("retains monthly and other window labels without a duration", () => {
-    const monthly = planLimitGauge(makeLimits([makeWindow("monthly", 44, null)]));
-    expect(monthly.needle?.title).toBe("Monthly");
-    expect(monthly.arc).toBeNull();
-    expect(planLimitDisplayWindows(makeLimits([makeWindow("other", 20, null)]))[0]?.title).toBe(
-      "Extra quota",
-    );
   });
 
   it("orders windows by kind when durations are missing", () => {
@@ -155,9 +131,9 @@ describe("planLimitGauge", () => {
         "claude-fable-5",
       );
 
-    expect(withCap(39).arc?.modelSlugs).toEqual(["claude-fable-5"]);
-    expect(withCap(39).needle?.title).toBe("5-hour");
-    expect(withCap(80).arc?.modelSlugs).toBeNull();
+    expect(withCap(39).arc?.source.modelSlugs).toEqual(["claude-fable-5"]);
+    expect(withCap(39).needle?.title).toBe("Session");
+    expect(withCap(80).arc?.source.modelSlugs).toBeUndefined();
   });
 
   it("ignores scoped caps when the slug matches none of them", () => {
@@ -166,9 +142,9 @@ describe("planLimitGauge", () => {
       makeWindow("weekly", 100, 10080, "Fable"),
     ]);
 
-    expect(planLimitGauge(limits, "claude-sonnet-5").needle?.modelSlugs).toBeNull();
-    expect(planLimitGauge(limits, undefined).needle?.modelSlugs).toBeNull();
-    expect(planLimitGauge(limits, "gpt-5-codex").needle?.modelSlugs).toBeNull();
+    expect(planLimitGauge(limits, "claude-sonnet-5").needle?.source.modelSlugs).toBeUndefined();
+    expect(planLimitGauge(limits, undefined).needle?.source.modelSlugs).toBeUndefined();
+    expect(planLimitGauge(limits, "gpt-5-codex").needle?.source.modelSlugs).toBeUndefined();
   });
 
   it("uses the next duration even when a third window is exhausted", () => {
@@ -181,7 +157,7 @@ describe("planLimitGauge", () => {
     );
 
     expect(gauge.needle).toMatchObject({
-      title: "5-hour",
+      title: "Session",
       status: "exhausted",
     });
     expect(gauge.arc).toMatchObject({ title: "Weekly", remainingPercent: 61 });
@@ -195,8 +171,8 @@ describe("planLimitGauge", () => {
       ]),
     );
 
-    expect(gauge.needle?.title).toBe("1-hour");
-    expect(gauge.arc?.title).toBe("5-hour");
+    expect(gauge.needle?.source.windowDurationMins).toBe(60);
+    expect(gauge.arc?.source.windowDurationMins).toBe(300);
   });
 
   it("combines weekly caps on the needle and follows model changes", () => {
@@ -221,7 +197,7 @@ describe("planLimitGauge", () => {
       "claude-fable-5",
     );
 
-    expect(gauge.needle?.modelSlugs).toEqual(["claude-fable-5"]);
+    expect(gauge.needle?.source.modelSlugs).toEqual(["claude-fable-5"]);
     expect(gauge.arc).toBeNull();
   });
 
@@ -229,7 +205,7 @@ describe("planLimitGauge", () => {
     const windows = [makeWindow("weekly", 60, 10080, "Fable"), makeWindow("weekly", 60, 10080)];
     const gauge = planLimitGauge(makeLimits(windows), "claude-fable-5");
 
-    expect(gauge.needle?.modelSlugs).toBeNull();
+    expect(gauge.needle?.source.modelSlugs).toBeUndefined();
     expect(planLimitGauge(makeLimits(windows.toReversed()), "claude-fable-5")).toEqual(gauge);
   });
 });

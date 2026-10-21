@@ -4,6 +4,7 @@ import { RefreshCwIcon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
+import { Button } from "../ui/button";
 import { PaceIcon } from "../usage/UsageLimits";
 import {
   planLimitDisplayWindows,
@@ -39,19 +40,16 @@ export function ComposerPlanLimitsDetail({
             </span>
           )}
         </div>
-        <button
-          type="button"
+        <Button
+          size="micro"
+          variant="ghost-muted"
           onClick={onRefresh}
           disabled={refreshing}
           aria-label={refreshing ? "Refreshing limits" : "Refresh limits"}
-          className="flex items-center gap-1 rounded text-secondary-label text-2xs hover:text-foreground disabled:hover:text-secondary-label"
         >
           {formatRelativeTimeLabel(limits.checkedAt)}
-          <RefreshCwIcon
-            aria-hidden="true"
-            className={cn("size-3", refreshing && "animate-spin")}
-          />
-        </button>
+          <RefreshCwIcon aria-hidden="true" className={cn(refreshing && "animate-spin")} />
+        </Button>
       </div>
 
       {planLimitDisplayWindows(limits).map((window) => {

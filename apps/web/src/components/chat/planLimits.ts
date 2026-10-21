@@ -16,11 +16,7 @@ interface PlanLimitDisplayWindow {
   readonly key: string;
   readonly title: string;
   readonly remainingPercent: number;
-  readonly resetsAt: string | null;
   readonly status: PlanLimitStatus;
-  readonly kind: ServerProviderUsageWindow["kind"];
-  readonly windowMinutes: number | null;
-  readonly modelSlugs: ReadonlyArray<string> | null;
   readonly source: ServerProviderUsageWindow;
 }
 
@@ -29,32 +25,6 @@ const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
 const MINUTES_PER_WEEK = 7 * MINUTES_PER_DAY;
 
 const WARNING_REMAINING_PERCENT = 20;
-
-/**
- * Names a time window from the duration the provider reported.
- */
-export function planLimitWindowTitle(window: ServerProviderUsageWindow): string {
-  if (window.modelSlugs !== undefined) return window.label;
-  const minutes = window.windowDurationMins;
-  if (minutes === undefined || minutes <= 0) {
-    return window.kind === "other"
-      ? window.label
-      : window.kind.charAt(0).toUpperCase() + window.kind.slice(1);
-  }
-  if (minutes % MINUTES_PER_WEEK === 0) {
-    const weeks = minutes / MINUTES_PER_WEEK;
-    return weeks === 1 ? "Weekly" : `${weeks}-week`;
-  }
-  if (minutes % MINUTES_PER_DAY === 0) {
-    const days = minutes / MINUTES_PER_DAY;
-    return `${days}-day`;
-  }
-  if (minutes % MINUTES_PER_HOUR === 0) {
-    const hours = minutes / MINUTES_PER_HOUR;
-    return `${hours}-hour`;
-  }
-  return `${minutes}-minute`;
-}
 
 /** Builds usage-window display data. */
 export function planLimitDisplayWindows(
@@ -69,12 +39,8 @@ export function planLimitDisplayWindows(
       const remaining = remainingPercent(window);
       return {
         key: window.id,
-        title: planLimitWindowTitle(window),
+        title: window.label,
         remainingPercent: remaining,
-        resetsAt: window.resetsAt ?? null,
-        kind: window.kind,
-        windowMinutes: window.windowDurationMins ?? null,
-        modelSlugs: window.modelSlugs ?? null,
         source: window,
         status:
           window.usedPercent >= 100
@@ -101,18 +67,20 @@ export function planLimitTrackColor(status: PlanLimitStatus): string {
 }
 
 /** True when a usage window constrains the given model. */
-export function planLimitAppliesToModel(
-  window: { readonly modelSlugs: ReadonlyArray<string> | null },
+function planLimitAppliesToModel(
+  window: ServerProviderUsageWindow,
   selectedModel: string | null | undefined,
 ): boolean {
-  if (window.modelSlugs === null) return true;
+  if (window.modelSlugs === undefined) return true;
   if (selectedModel === null || selectedModel === undefined) return false;
   return window.modelSlugs.includes(selectedModel);
 }
 
-function planLimitWindowOrder(window: PlanLimitDisplayWindow): number {
-  if (window.windowMinutes !== null && window.windowMinutes > 0) return window.windowMinutes;
-  switch (window.kind) {
+function planLimitWindowOrder({ source }: PlanLimitDisplayWindow): number {
+  if (source.windowDurationMins !== undefined && source.windowDurationMins > 0) {
+    return source.windowDurationMins;
+  }
+  switch (source.kind) {
     case "session":
       return 5 * MINUTES_PER_HOUR;
     case "weekly":
@@ -133,7 +101,7 @@ export function planLimitGauge(
   readonly needle: PlanLimitDisplayWindow | null;
 } {
   const windows = planLimitDisplayWindows(limits)
-    .filter((window) => planLimitAppliesToModel(window, selectedModel))
+    .filter((window) => planLimitAppliesToModel(window.source, selectedModel))
     .sort(
       (a, b) =>
         planLimitWindowOrder(a) - planLimitWindowOrder(b) ||
@@ -160,11 +128,12 @@ export function planLimitCountdownTarget(
   selectedModel: string | null | undefined,
 ): number | null {
   const blockers = planLimitDisplayWindows(limits).filter(
-    (window) => window.status === "exhausted" && planLimitAppliesToModel(window, selectedModel),
+    (window) =>
+      window.status === "exhausted" && planLimitAppliesToModel(window.source, selectedModel),
   );
   if (blockers.length === 0) return null;
-  const resets = blockers.map((window) =>
-    window.resetsAt === null ? NaN : Date.parse(window.resetsAt),
+  const resets = blockers.map(({ source }) =>
+    source.resetsAt === undefined ? NaN : Date.parse(source.resetsAt),
   );
   return resets.every(Number.isFinite) ? Math.max(...resets) : null;
 }

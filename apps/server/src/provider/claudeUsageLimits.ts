@@ -220,10 +220,7 @@ export function claudeUsageResponseToLimits(input: {
   readonly response: Pick<SDKControlGetUsageResponse, "rate_limits_available" | "rate_limits">;
   readonly checkedAt: string;
   readonly models: ReadonlyArray<ClaudeModelName>;
-}): {
-  readonly limits: ServerProviderUsageLimits;
-  readonly names: ClaudeScopedLimitNames;
-} {
+}): { readonly limits: ServerProviderUsageLimits; readonly names: ClaudeScopedLimitNames } {
   const { response, checkedAt } = input;
   if (!response.rate_limits_available || !response.rate_limits) {
     return {
