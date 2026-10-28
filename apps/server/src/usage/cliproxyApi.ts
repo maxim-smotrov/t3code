@@ -20,6 +20,7 @@ import {
   GrokUsageResponse,
   grokUsageResponseToLimits,
 } from "@t3tools/provider-grok/server";
+import { BUNDLED_CLAUDE_MODEL_CATALOG } from "../provider/ClaudeModelCatalog.ts";
 import { codexPlanLabel } from "../provider/CodexProvider.ts";
 import { codexRateLimitsToLimits } from "../provider/codexUsageLimits.ts";
 import { claudeUsageResponseToLimits } from "../provider/claudeUsageLimits.ts";
@@ -334,6 +335,7 @@ const HUB_PROVIDERS = new Map<string, HubProvider>([
           plan: "Claude Subscription",
           usageLimits: claudeUsageResponseToLimits({
             checkedAt,
+            models: BUNDLED_CLAUDE_MODEL_CATALOG.models.map((entry) => entry.model),
             response: { rate_limits_available: true, rate_limits: rateLimits },
           }).limits,
         };
