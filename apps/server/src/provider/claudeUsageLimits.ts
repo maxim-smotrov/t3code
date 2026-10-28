@@ -1,6 +1,7 @@
 import type { SDKControlGetUsageResponse, SDKRateLimitInfo } from "@anthropic-ai/claude-agent-sdk";
 import type {
   ProviderUsageLimitsUpdate,
+  ServerProviderModel,
   ServerProviderUsageLimits,
   ServerProviderUsageWindow,
 } from "@t3tools/contracts";
@@ -26,7 +27,7 @@ const WINDOWS: Readonly<
   seven_day: { kind: "weekly", label: "Weekly", windowDurationMins: WEEK_MINS },
 };
 
-/** Reuse probed display names for streamed bucket types so mid-turn updates target the same row. */
+/** Reuse probed buckets for streamed bucket types so mid-turn updates target the same row. */
 const OVERAGE_INCLUDED_EVENT_TYPE = "seven_day_overage_included";
 
 // The SDK does not yet type the spend budget returned by `get_usage`.
@@ -39,27 +40,58 @@ const decodeSpendBudget = Schema.decodeUnknownOption(
   Schema.Struct({ enabled: Schema.Boolean, used: SpendMoney, limit: SpendMoney }),
 );
 
+export interface ClaudeScopedBucket {
+  readonly displayName: string;
+  readonly modelSlugs: ReadonlyArray<string>;
+}
+
 export interface ClaudeScopedLimitNames {
-  readonly overageIncluded: string | undefined;
+  readonly overageIncluded: ClaudeScopedBucket | undefined;
 }
 
 export const makeClaudeScopedLimitNames = Ref.make<ClaudeScopedLimitNames>({
   overageIncluded: undefined,
 });
 
+type ClaudeModelName = Pick<ServerProviderModel, "slug" | "name">;
+
 function scopedWindowId(displayName: string): string {
   return `seven_day_${displayName.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
 }
 
-function scopedWindow(
+function nameTokens(name: string): ReadonlyArray<string> {
+  return name
+    .toLowerCase()
+    .split(/[^a-z0-9.]+/)
+    .filter((token) => token.length > 0);
+}
+
+function bucketModelSlugs(
   displayName: string,
+  models: ReadonlyArray<ClaudeModelName>,
+): ReadonlyArray<string> {
+  const label = nameTokens(displayName);
+  if (label.length === 0) return [];
+  return models
+    .filter((model) => {
+      const tokens = nameTokens(model.name);
+      return tokens.some((_, start) =>
+        label.every((token, offset) => tokens[start + offset] === token),
+      );
+    })
+    .map((model) => model.slug);
+}
+
+function scopedWindow(
+  bucket: ClaudeScopedBucket,
   usedPercent: number,
   resetsAt: string | undefined,
 ): ServerProviderUsageWindow {
   return {
-    id: scopedWindowId(displayName),
+    id: scopedWindowId(bucket.displayName),
     kind: "weekly",
-    label: `Weekly · ${displayName}`,
+    label: `Weekly · ${bucket.displayName}`,
+    modelSlugs: bucket.modelSlugs,
     windowDurationMins: WEEK_MINS,
     usedPercent: clampPercent(usedPercent),
     ...(resetsAt ? { resetsAt } : {}),
@@ -175,6 +207,7 @@ export function claudeRateLimitEventToUpdate(
 export function claudeUsageResponseToLimits(input: {
   readonly response: Pick<SDKControlGetUsageResponse, "rate_limits_available" | "rate_limits">;
   readonly checkedAt: string;
+  readonly models: ReadonlyArray<ClaudeModelName>;
 }): { readonly limits: ServerProviderUsageLimits; readonly names: ClaudeScopedLimitNames } {
   const { response, checkedAt } = input;
   if (!response.rate_limits_available || !response.rate_limits) {
@@ -193,13 +226,15 @@ export function claudeUsageResponseToLimits(input: {
     windows.push(makeWindow(id, window.utilization, isoFromString(window.resets_at)));
   }
   // The CLI's overage allowlist currently has one model; events refer to its first entry.
-  let overageIncluded: string | undefined;
+  let overageIncluded: ClaudeScopedBucket | undefined;
   for (const entry of readModelScoped(response.rate_limits)) {
     if (typeof entry.utilization !== "number") continue;
-    windows.push(
-      scopedWindow(entry.display_name, entry.utilization, isoFromString(entry.resets_at)),
-    );
-    overageIncluded ??= entry.display_name;
+    const bucket = {
+      displayName: entry.display_name,
+      modelSlugs: bucketModelSlugs(entry.display_name, input.models),
+    };
+    windows.push(scopedWindow(bucket, entry.utilization, isoFromString(entry.resets_at)));
+    overageIncluded ??= bucket;
   }
   const spendPercent = readSpendPercent(response.rate_limits);
   if (spendPercent !== undefined) {
