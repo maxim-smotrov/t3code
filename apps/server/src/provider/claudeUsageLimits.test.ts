@@ -4,12 +4,20 @@ import { claudeRateLimitEventToUpdate, claudeUsageResponseToLimits } from "./cla
 
 const checkedAt = "2026-07-18T10:00:00.000Z";
 const noNames = { overageIncluded: undefined } as const;
+const models = [
+  { slug: "claude-fable-5-1", name: "Claude Fable 5.1" },
+  { slug: "claude-fable-5", name: "Claude Fable 5" },
+  { slug: "claude-opus-5", name: "Claude Opus 5" },
+];
+const fableSlugs = ["claude-fable-5-1", "claude-fable-5"];
+const fable = { displayName: "Fable", modelSlugs: fableSlugs };
 
 describe("claudeUsageResponseToLimits", () => {
   it("maps the session, weekly, and model-scoped weekly windows", () => {
     expect(
       claudeUsageResponseToLimits({
         checkedAt,
+        models,
         response: {
           rate_limits_available: true,
           rate_limits: {
@@ -32,7 +40,7 @@ describe("claudeUsageResponseToLimits", () => {
         },
       }),
     ).toEqual({
-      names: { overageIncluded: "Fable" },
+      names: { overageIncluded: fable },
       limits: {
         checkedAt,
         windows: [
@@ -56,6 +64,7 @@ describe("claudeUsageResponseToLimits", () => {
             id: "seven_day_fable",
             kind: "weekly",
             label: "Weekly · Fable",
+            modelSlugs: fableSlugs,
             usedPercent: 73,
             windowDurationMins: 10080,
             resetsAt: "2026-07-24T08:59:00.000Z",
@@ -69,6 +78,7 @@ describe("claudeUsageResponseToLimits", () => {
     expect(
       claudeUsageResponseToLimits({
         checkedAt,
+        models,
         response: {
           rate_limits_available: true,
           rate_limits: {
@@ -81,13 +91,14 @@ describe("claudeUsageResponseToLimits", () => {
           },
         },
       }).names,
-    ).toEqual({ overageIncluded: "Fable" });
+    ).toEqual({ overageIncluded: fable });
   });
 
   it("skips a window the endpoint reports without a utilization", () => {
     expect(
       claudeUsageResponseToLimits({
         checkedAt,
+        models,
         response: {
           rate_limits_available: true,
           rate_limits: {
@@ -136,12 +147,12 @@ describe("claudeUsageResponseToLimits", () => {
   };
 
   it("maps the captured Enterprise budget precisely, preferring spend beside rolling windows", () => {
-    expect(claudeUsageResponseToLimits({ checkedAt, response: enterpriseResponse }).limits).toEqual(
-      {
-        checkedAt,
-        windows: [monthlyWindow],
-      },
-    );
+    expect(
+      claudeUsageResponseToLimits({ checkedAt, models, response: enterpriseResponse }).limits,
+    ).toEqual({
+      checkedAt,
+      windows: [monthlyWindow],
+    });
     const response = {
       ...enterpriseResponse,
       rate_limits: {
@@ -154,7 +165,7 @@ describe("claudeUsageResponseToLimits", () => {
         },
       },
     };
-    expect(claudeUsageResponseToLimits({ checkedAt, response }).limits.windows).toEqual([
+    expect(claudeUsageResponseToLimits({ checkedAt, models, response }).limits.windows).toEqual([
       {
         id: "five_hour",
         kind: "session",
@@ -179,7 +190,7 @@ describe("claudeUsageResponseToLimits", () => {
         extra_usage: { ...enterpriseResponse.rate_limits.extra_usage, utilization: 9 },
       },
     };
-    expect(claudeUsageResponseToLimits({ checkedAt, response }).limits.windows).toEqual([
+    expect(claudeUsageResponseToLimits({ checkedAt, models, response }).limits.windows).toEqual([
       monthlyWindow,
     ]);
     const utilizationOnly = {
@@ -195,7 +206,7 @@ describe("claudeUsageResponseToLimits", () => {
       },
     };
     expect(
-      claudeUsageResponseToLimits({ checkedAt, response: utilizationOnly }).limits.windows,
+      claudeUsageResponseToLimits({ checkedAt, models, response: utilizationOnly }).limits.windows,
     ).toEqual([monthlyWindow]);
   });
 
@@ -209,17 +220,17 @@ describe("claudeUsageResponseToLimits", () => {
         extra_usage: { ...rateLimits.extra_usage, is_enabled: false },
       },
     };
-    expect(claudeUsageResponseToLimits({ checkedAt, response }).limits.windows).toEqual([]);
+    expect(claudeUsageResponseToLimits({ checkedAt, models, response }).limits.windows).toEqual([]);
     response.rate_limits.spend = {
       ...rateLimits.spend,
       limit: { ...rateLimits.spend.limit, currency: "EUR" },
     };
-    expect(claudeUsageResponseToLimits({ checkedAt, response }).limits.windows).toEqual([]);
+    expect(claudeUsageResponseToLimits({ checkedAt, models, response }).limits.windows).toEqual([]);
     response.rate_limits.spend = {
       ...rateLimits.spend,
       limit: { ...rateLimits.spend.limit, amount_minor: 0 },
     };
-    expect(claudeUsageResponseToLimits({ checkedAt, response }).limits.windows).toEqual([]);
+    expect(claudeUsageResponseToLimits({ checkedAt, models, response }).limits.windows).toEqual([]);
   });
 });
 
@@ -256,16 +267,55 @@ describe("claudeRateLimitEventToUpdate", () => {
       utilization: 0.4,
     } as const;
     expect(claudeRateLimitEventToUpdate(event, noNames)).toBeUndefined();
-    expect(claudeRateLimitEventToUpdate(event, { overageIncluded: "Fable" })).toEqual({
+    expect(claudeRateLimitEventToUpdate(event, { overageIncluded: fable })).toEqual({
       windows: [
         {
           id: "seven_day_fable",
           kind: "weekly",
           label: "Weekly · Fable",
+          modelSlugs: fableSlugs,
           usedPercent: 40,
           windowDurationMins: 10080,
         },
       ],
     });
   });
+
+  it.each([
+    { displayName: "Fable 5", id: "seven_day_fable_5", modelSlugs: ["claude-fable-5"] },
+    { displayName: "New Model", id: "seven_day_new_model", modelSlugs: [] },
+    { displayName: "フェイブル", id: "seven_day__", modelSlugs: [] },
+  ])(
+    "limits the $displayName bucket to the models it names and keeps its streamed identity",
+    ({ displayName, id, modelSlugs }) => {
+      const probe = claudeUsageResponseToLimits({
+        checkedAt,
+        models,
+        response: {
+          rate_limits_available: true,
+          rate_limits: {
+            model_scoped: [{ display_name: displayName, utilization: 60, resets_at: null }],
+          },
+        },
+      });
+      const window = probe.limits.windows[0];
+      expect(window).toEqual({
+        id,
+        kind: "weekly",
+        label: `Weekly · ${displayName}`,
+        usedPercent: 60,
+        windowDurationMins: 10080,
+        modelSlugs,
+      });
+      const update = claudeRateLimitEventToUpdate(
+        {
+          status: "rejected",
+          rateLimitType: "seven_day_overage_included",
+          utilization: 0.75,
+        },
+        probe.names,
+      );
+      expect(update).toEqual({ windows: [{ ...window, usedPercent: 75 }] });
+    },
+  );
 });
