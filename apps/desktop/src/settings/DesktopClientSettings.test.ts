@@ -35,6 +35,7 @@ const clientSettings: ClientSettings = {
   confirmThreadDelete: false,
   confirmThreadUnpin: false,
   contextWindowMeterEnabled: false,
+  planLimitsGaugeEnabled: false,
   diffFilesCollapsed: true,
   diffIgnoreWhitespace: true,
   diffLayout: "stacked",
