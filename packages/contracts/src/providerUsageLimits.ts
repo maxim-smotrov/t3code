@@ -18,6 +18,7 @@ export const ServerProviderUsageWindow = Schema.Struct({
   modelIds: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
   providerIds: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
   usedPercent: Schema.Number.check(Schema.isBetween({ minimum: 0, maximum: 100 })),
+  modelSlugs: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
   resetsAt: Schema.optional(IsoDateTime),
   windowDurationMins: Schema.optional(NonNegativeInt),
 });
