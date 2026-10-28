@@ -1,4 +1,10 @@
-import type { ModelSelection, ProviderInstanceId, RuntimeMode } from "@t3tools/contracts";
+import type {
+  EnvironmentId,
+  ModelSelection,
+  ProviderInstanceId,
+  RuntimeMode,
+  ServerProviderUsageLimits,
+} from "@t3tools/contracts";
 import { createModelSelection } from "@t3tools/shared/model";
 import { type ComponentProps, memo, useId, useRef, useState } from "react";
 
@@ -7,7 +13,9 @@ import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ComposerControl, ComposerControlIcon } from "./ComposerControl";
 import { focusRequestedPermission, useComposerMenuProps } from "./composerEventScope";
+import { ComposerPlanLimits } from "./ComposerPlanLimits";
 import { ComposerPrimaryActions } from "./ComposerPrimaryActions";
+import type { PlanLimitsTitle } from "./planLimits";
 import { resolveModelPickerSelectedModel } from "./ModelPickerContent";
 import { ProviderModelPicker } from "./ProviderModelPicker";
 import { runtimeModeConfig } from "./runtimeModeConfig";
@@ -189,6 +197,12 @@ export const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryA
   children?: React.ReactNode;
   compact: boolean;
   canOperateThread: boolean;
+  planLimits: {
+    readonly environmentId: EnvironmentId;
+    readonly limits: ServerProviderUsageLimits;
+    readonly title: PlanLimitsTitle;
+  } | null;
+  planLimitsModel: string | null;
   isPreparingWorktree: boolean;
   pendingAction: {
     questionIndex: number;
@@ -222,6 +236,14 @@ export const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryA
 }) {
   return (
     <>
+      {props.planLimits ? (
+        <ComposerPlanLimits
+          environmentId={props.planLimits.environmentId}
+          limits={props.planLimits.limits}
+          model={props.planLimitsModel}
+          title={props.planLimits.title}
+        />
+      ) : null}
       <ComposerPrimaryActions
         compact={props.compact}
         canOperateThread={props.canOperateThread}
