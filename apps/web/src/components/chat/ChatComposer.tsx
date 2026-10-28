@@ -231,6 +231,7 @@ import {
   buildExpandedImagePreview,
   type ExpandedImagePreview,
 } from "./ExpandedImagePreview";
+import { hasRenderableLimits, planLimitsTitle } from "./planLimits";
 import { cn, isMacPlatform, randomUUID } from "~/lib/utils";
 import {
   getComposerPromptLengthValidationMessage,
@@ -945,6 +946,18 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     runtimeModeCeilingDenial === undefined
       ? undefined
       : clampManagedRuntimeMode(managedPolicy, compatibleRuntimeMode, compatibleRuntimeModes);
+
+  const selectedPlanLimits = selectedProviderEntry?.snapshot.usageLimits ?? null;
+  const planLimits =
+    !settings.planLimitsGaugeEnabled ||
+    selectedProviderEntry === undefined ||
+    !hasRenderableLimits(selectedPlanLimits)
+      ? null
+      : {
+          environmentId,
+          limits: selectedPlanLimits,
+          title: planLimitsTitle(selectedProviderEntry, providerInstanceEntries),
+        };
 
   const providerSendBlockReason = getAntigravitySendBlockReason(
     selectedProviderEntry?.snapshot,
@@ -3855,6 +3868,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     key={`${environmentId}:${activeThreadId ?? "new"}`}
                     compact={isComposerPrimaryActionsCompact}
                     canOperateThread={canOperateThread}
+                    planLimits={planLimits}
+                    planLimitsModel={selectedModel === "" ? null : selectedModel}
                     pendingAction={pendingPrimaryAction}
                     isRunning={(phase === "running" || phase === "connecting") && !draftRunsLocally}
                     canInterrupt={canInterrupt}
