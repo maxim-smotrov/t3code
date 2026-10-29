@@ -183,24 +183,46 @@ function makeWindow(
   };
 }
 
+// The CLI streams every window here, but the SDK does not type it; the typed
+// top-level `utilization` only appears past the warning threshold.
+const decodeUnifiedWindows = Schema.decodeUnknownOption(
+  Schema.Record(
+    Schema.String,
+    Schema.Struct({ utilization: Schema.Finite, resetsAt: Schema.optionalKey(Schema.Finite) }),
+  ),
+);
+
+function streamedWindow(
+  type: string,
+  entry: { readonly utilization: number; readonly resetsAt?: number | undefined },
+  names: ClaudeScopedLimitNames,
+): ServerProviderUsageWindow | undefined {
+  const usedPercent = entry.utilization * 100;
+  const resetsAt = isoFromEpochSeconds(entry.resetsAt);
+  if (type in WINDOWS) {
+    return makeWindow(type, usedPercent, resetsAt);
+  }
+  if (type === OVERAGE_INCLUDED_EVENT_TYPE && names.overageIncluded) {
+    return scopedWindow(names.overageIncluded, usedPercent, resetsAt);
+  }
+  return undefined;
+}
+
 /** Stream utilization is 0-1. Drop unnamed overage buckets until probed to avoid unreconcilable rows. */
 export function claudeRateLimitEventToUpdate(
   info: SDKRateLimitInfo,
   names: ClaudeScopedLimitNames,
 ): ProviderUsageLimitsUpdate | undefined {
-  const type: string | undefined = info.rateLimitType;
-  if (!type || typeof info.utilization !== "number") {
-    return undefined;
-  }
-  const usedPercent = info.utilization * 100;
-  const resetsAt = isoFromEpochSeconds(info.resetsAt);
-  if (type in WINDOWS) {
-    return { windows: [makeWindow(type, usedPercent, resetsAt)] };
-  }
-  if (type === OVERAGE_INCLUDED_EVENT_TYPE && names.overageIncluded) {
-    return { windows: [scopedWindow(names.overageIncluded, usedPercent, resetsAt)] };
-  }
-  return undefined;
+  const unified = decodeUnifiedWindows(
+    (info as { readonly unifiedWindows?: unknown }).unifiedWindows,
+  );
+  const entries = Option.isSome(unified)
+    ? Object.entries(unified.value)
+    : info.rateLimitType && typeof info.utilization === "number"
+      ? [[info.rateLimitType, { utilization: info.utilization, resetsAt: info.resetsAt }] as const]
+      : [];
+  const windows = entries.flatMap(([type, entry]) => streamedWindow(type, entry, names) ?? []);
+  return windows.length === 0 ? undefined : { windows };
 }
 
 /** get_usage percentages are already 0-100. */
