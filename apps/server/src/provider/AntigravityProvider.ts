@@ -8,9 +8,11 @@ import {
   type ServerProvider,
   type ServerProviderModel,
   type ServerProviderSlashCommand,
+  type ServerProviderUsageLimits,
 } from "@t3tools/contracts";
 import { createModelCapabilities } from "@t3tools/shared/model";
 import * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
@@ -209,6 +211,11 @@ interface AntigravityProviderOptions {
   /** Modes the last session advertised, saved because initialize alone does not report them. */
   readonly rememberedRuntimeModes?: ReadonlyArray<RuntimeMode>;
   readonly rememberRuntimeModes?: (modes: ReadonlyArray<RuntimeMode>) => Effect.Effect<void>;
+  /** Fork-only: rate-limited quota read for the plan limits gauge. */
+  readonly readUsage?: (
+    models: ReadonlyArray<ServerProviderModel>,
+    options?: { readonly force?: boolean },
+  ) => Effect.Effect<ServerProviderUsageLimits | undefined>;
 }
 
 const RUNTIME_MODES_WITHOUT_AUTO = [
@@ -305,6 +312,10 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
   const getSnapshot = SubscriptionRef.get(metadata).pipe(
     Effect.flatMap((state) => options.stampIdentity(state.draft)),
   );
+  // Fork-only: set once `managed` exists, since a usage read publishes through it.
+  const usageRefresh =
+    yield* Deferred.make<(options?: { readonly force?: boolean }) => Effect.Effect<void>>();
+  const scope = yield* Effect.scope;
 
   const checkProvider = Effect.fn("checkAntigravityProvider")(function* () {
     if (!settings.enabled) return yield* getSnapshot;
@@ -364,6 +375,7 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
                 skills: [],
                 workspaceSnapshots: [],
                 supportsTextGeneration: false,
+                usageLimits: undefined,
               }
             : {}),
           ...(initialized !== undefined
@@ -383,6 +395,10 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
       const stored = deferFailure && state.draft.status === "ready" ? state : checked;
       return [checked, stored === state ? Option.none() : Option.some(stored)];
     });
+    yield* Deferred.await(usageRefresh).pipe(
+      Effect.flatMap((refresh) => refresh()),
+      Effect.forkIn(scope),
+    );
     return yield* options.stampIdentity(next.draft);
   });
 
@@ -406,6 +422,33 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
         ),
       ),
   });
+  // The draft keeps the reading so the next health check does not clear it.
+  const refreshUsage = Effect.fn("AntigravityProvider.refreshUsage")(function* (refreshOptions?: {
+    readonly force?: boolean;
+  }) {
+    const { draft } = yield* SubscriptionRef.get(metadata);
+    if (!options.readUsage || draft.auth.status !== "authenticated" || draft.status !== "ready") {
+      return;
+    }
+    const usageLimits = yield* options.readUsage(draft.models, refreshOptions);
+    if (!usageLimits) return;
+    const signedIn = yield* SubscriptionRef.modify(metadata, (state) =>
+      state.draft.auth.status === "authenticated"
+        ? ([
+            { label: state.draft.auth.label },
+            { ...state, draft: { ...state.draft, usageLimits } },
+          ] as const)
+        : ([null, state] as const),
+    );
+    if (signedIn) {
+      yield* managed.applyUsageLimits({
+        ...usageLimits,
+        ...(signedIn.label ? { authLabel: signedIn.label } : {}),
+        complete: true,
+      });
+    }
+  });
+  yield* Deferred.succeed(usageRefresh, refreshUsage);
 
   const onSessionStarted = Effect.fn("AntigravityProvider.onSessionStarted")(function* (
     started: AcpSessionRuntime.AcpSessionRuntimeStartResult,
@@ -473,6 +516,7 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
       return [draft.supportedRuntimeModes, next] as const;
     });
     yield* rememberRuntimeModes(previousModes, supportedRuntimeModes);
+    yield* Effect.forkIn(refreshUsage(), scope);
   });
 
   const onConfigOptionsUpdated = Effect.fn("AntigravityProvider.onConfigOptionsUpdated")(function* (
@@ -553,6 +597,7 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
           workspaceSnapshots: [],
           supportedRuntimeModes: RUNTIME_MODES_WITHOUT_AUTO,
           supportsTextGeneration: false,
+          usageLimits: undefined,
         },
       } satisfies AntigravityProviderState,
     ]);
@@ -561,6 +606,9 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
     workspaceCommands.clear();
     thinkingLevels.clear();
     defaultModelSlug = undefined;
+    if ((yield* managed.getSnapshot).usageLimits !== undefined) {
+      yield* Effect.forkIn(managed.refresh, scope);
+    }
   });
 
   const snapshotForCwd = Effect.fn("AntigravityProvider.snapshotForCwd")(function* (
@@ -595,7 +643,16 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
   });
 
   return {
-    snapshot: { ...managed, getSnapshot },
+    snapshot: {
+      ...managed,
+      getSnapshot,
+      refresh: Effect.gen(function* () {
+        const snapshot = yield* managed.refresh;
+        if (snapshot.status !== "ready") return snapshot;
+        yield* refreshUsage({ force: true });
+        return yield* getSnapshot;
+      }),
+    },
     onSessionStarted,
     onConfigOptionsUpdated,
     onAvailableCommands,
