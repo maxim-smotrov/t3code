@@ -76,6 +76,7 @@ import {
   AntigravityProbeIncompatibility,
   makeAntigravityProvider,
 } from "../AntigravityProvider.ts";
+import { makeAntigravityCliUsageReader } from "../antigravityCliUsageLimits.ts";
 import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
 import * as ModelCatalog from "@t3tools/provider-core/server/ModelCatalog";
 import {
@@ -656,6 +657,17 @@ export const AntigravityDriver: ProviderDriver<
       probe,
       auth: { type: auth.authMethod, label: antigravityAuthLabel(auth.authMethod) },
       ...(rememberedRuntimeModes ? { rememberedRuntimeModes } : {}),
+      // Fork-only: agy reports quota for Google sign-ins only.
+      ...(auth.authMethod === "oauth-personal"
+        ? {
+            readUsage: yield* makeAntigravityCliUsageReader({
+              environment: processEnvironment,
+              resolveExecutable: installation
+                .resolve(settings.binaryPath, processEnvironment)
+                .pipe(Effect.map((executable) => executable.executablePath)),
+            }),
+          }
+        : {}),
       rememberRuntimeModes: (modes) =>
         writeFileStringAtomically({
           filePath: runtimeModesPath,
