@@ -1,6 +1,7 @@
 import type { ServerProviderUsageLimits } from "@t3tools/contracts";
 import { paceOf, paceRemainingPercent } from "@t3tools/shared/usageLimits";
 import { formatResetsIn } from "@t3tools/shared/usageLimitsCopy";
+import { T, Var, useGT, useMessages } from "gt-react";
 import { RefreshCwIcon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
@@ -28,16 +29,22 @@ export function ComposerPlanLimitsDetail({
   readonly onRefresh: () => void;
   readonly refreshing: boolean;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   return (
     <div className="flex flex-col gap-3 p-(--floating-content-inset)">
       <div className="flex items-center justify-between gap-3">
         <div className="font-medium text-muted-foreground text-xs">
           {title.kind === "provider" ? (
-            `${title.label} limits`
+            gt("{provider} limits", { provider: title.label })
           ) : (
             <span className="flex items-center gap-1">
-              <code className="text-foreground pr-0.5">{title.name}</code>
-              limits
+              <T>
+                <code className="text-foreground pr-0.5">
+                  <Var>{title.name}</Var>
+                </code>{" "}
+                limits
+              </T>
             </span>
           )}
         </div>
@@ -46,7 +53,7 @@ export function ComposerPlanLimitsDetail({
           variant="ghost-muted"
           onClick={onRefresh}
           disabled={refreshing}
-          aria-label={refreshing ? "Refreshing limits" : "Refresh limits"}
+          aria-label={refreshing ? gt("Refreshing limits") : gt("Refresh limits")}
         >
           {formatRelativeTimeLabel(limits.checkedAt)}
           <RefreshCwIcon aria-hidden="true" className={cn(refreshing && "animate-spin")} />
@@ -54,7 +61,7 @@ export function ComposerPlanLimitsDetail({
       </div>
 
       {planLimitDisplayWindows(limits).map((window) => {
-        const reset = formatResetsIn(window.source, nowMs);
+        const reset = formatResetsIn(window.source, nowMs, m);
         const pace = paceOf(window.source, nowMs);
         const timeLeft = paceRemainingPercent(window.source, nowMs);
         return (
@@ -66,12 +73,11 @@ export function ComposerPlanLimitsDetail({
                   window.status === "exhausted" ? "text-error-foreground" : "text-secondary-label"
                 }`}
               >
-                {window.remainingPercent}% left
                 {window.status === "exhausted"
-                  ? " · limit reached"
+                  ? gt("{remaining}% left · limit reached", { remaining: window.remainingPercent })
                   : window.status === "warning"
-                    ? " · warning"
-                    : ""}
+                    ? gt("{remaining}% left · warning", { remaining: window.remainingPercent })
+                    : gt("{remaining}% left", { remaining: window.remainingPercent })}
               </span>
             </div>
             <div
@@ -80,10 +86,15 @@ export function ComposerPlanLimitsDetail({
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={window.remainingPercent}
-              aria-label={`${window.title} remaining`}
-              aria-valuetext={`${window.remainingPercent}% left${
-                timeLeft === null ? "" : `, ${timeLeft}% of the window left`
-              }`}
+              aria-label={gt("{window} remaining", { window: window.title })}
+              aria-valuetext={
+                timeLeft === null
+                  ? gt("{remaining}% left", { remaining: window.remainingPercent })
+                  : gt("{remaining}% left, {timeLeft}% of the window left", {
+                      remaining: window.remainingPercent,
+                      timeLeft,
+                    })
+              }
             >
               <div
                 className="h-full overflow-hidden rounded-full"

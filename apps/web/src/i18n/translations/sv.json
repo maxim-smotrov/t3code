@@ -13169,5 +13169,27 @@
   "236911500e5aff7c": "Agenterna väntar hela tiden medan systemet frigör minne.",
   "81aafe06d7fede9a": "Där T3 Code sparar sina data och worktrees",
   "9429f8ff8866edac": "Processor",
-  "79a21371b8db96da": "Arbetet väntar på en ledig processor eller på disken, så agenterna går långsamt."
+  "79a21371b8db96da": "Arbetet väntar på en ledig processor eller på disken, så agenterna går långsamt.",
+  "5ec14dddb3ef6bab": "Gränser för {provider}",
+  "eb6430098e345308": "Uppdaterar gränser",
+  "4d09c5c477cf867c": "{remaining} % kvar · gränsen nådd",
+  "bda726c2ceb32651": "{remaining} % kvar · varning",
+  "1b6ce5b285c1df52": "Kvar för {window}",
+  "50c3266403857de5": "{remaining} % kvar, {timeLeft} % av perioden återstår",
+  "01575273f6f2d1ef": "Visar en mätare i skrivfältet för hur mycket användning som återstår. Visaren visar den kortaste perioden och bågen nästa längre period.",
+  "3310e3cab7ac9dba": "Återställ gränsmätaren till standard",
+  "e6e617271c365ada": "Mätare för plangränser",
+  "d4ecd6d7704ce192": "skrivfält användning kvot gräns prenumeration kvar återställ mätare",
+  "ac9eb89ff06504c1": [
+    "Gränser för ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    }
+  ]
 }

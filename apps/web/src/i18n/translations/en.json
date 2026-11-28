@@ -13170,5 +13170,28 @@
   "236911500e5aff7c": "Agents keep waiting while the system frees up memory.",
   "81aafe06d7fede9a": "Where T3 Code keeps its data and worktrees",
   "9429f8ff8866edac": "CPU",
-  "79a21371b8db96da": "Work waits for a free CPU or for the disk, so agents run slowly."
+  "79a21371b8db96da": "Work waits for a free CPU or for the disk, so agents run slowly.",
+  "5ec14dddb3ef6bab": "{provider} limits",
+  "eb6430098e345308": "Refreshing limits",
+  "4d09c5c477cf867c": "{remaining}% left · limit reached",
+  "bda726c2ceb32651": "{remaining}% left · warning",
+  "1b6ce5b285c1df52": "{window} remaining",
+  "50c3266403857de5": "{remaining}% left, {timeLeft}% of the window left",
+  "01575273f6f2d1ef": "Show a gauge in the composer that displays the remaining usage within your limits. The needle shows the shortest window, while the arc shows the next longer one.",
+  "3310e3cab7ac9dba": "Reset plan limits gauge to default",
+  "e6e617271c365ada": "Plan limits gauge",
+  "d4ecd6d7704ce192": "composer usage quota rate limit subscription remaining reset meter",
+  "ac9eb89ff06504c1": [
+    {
+      "t": "code",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    " ",
+    "limits"
+  ]
 }

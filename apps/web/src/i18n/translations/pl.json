@@ -13169,5 +13169,27 @@
   "236911500e5aff7c": "Agenci ciągle czekają, aż system zwolni pamięć.",
   "81aafe06d7fede9a": "Miejsce, w którym T3 Code trzyma dane i worktree",
   "9429f8ff8866edac": "CPU",
-  "79a21371b8db96da": "Praca czeka na wolny procesor lub na dysk, więc agenci działają wolno."
+  "79a21371b8db96da": "Praca czeka na wolny procesor lub na dysk, więc agenci działają wolno.",
+  "5ec14dddb3ef6bab": "Limity {provider}",
+  "eb6430098e345308": "Odświeżanie limitów",
+  "4d09c5c477cf867c": "Pozostało {remaining}% · limit osiągnięty",
+  "bda726c2ceb32651": "Pozostało {remaining}% · ostrzeżenie",
+  "1b6ce5b285c1df52": "Pozostało w okresie {window}",
+  "50c3266403857de5": "Pozostało {remaining}% limitu i {timeLeft}% okresu",
+  "01575273f6f2d1ef": "Pokazuje w polu wpisywania wskaźnik pozostałego limitu. Wskazówka oznacza najkrótszy okres, a łuk kolejny pod względem długości.",
+  "3310e3cab7ac9dba": "Przywróć domyślne ustawienie wskaźnika limitów",
+  "e6e617271c365ada": "Wskaźnik limitów planu",
+  "d4ecd6d7704ce192": "wpisywanie zużycie limit subskrypcja pozostało reset wskaźnik",
+  "ac9eb89ff06504c1": [
+    "Limity ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    }
+  ]
 }

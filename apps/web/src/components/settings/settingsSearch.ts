@@ -861,9 +861,9 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "plan-limits-gauge",
-    title: "Plan limits gauge",
+    title: msg("Plan limits gauge"),
     to: "/settings/chat",
-    searchTerms: ["composer usage quota rate limit subscription remaining reset meter"],
+    searchTerms: [msg("composer usage quota rate limit subscription remaining reset meter")],
   },
   {
     id: "provider-update-checks",

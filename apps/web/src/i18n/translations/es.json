@@ -13157,5 +13157,27 @@
   "236911500e5aff7c": "Los agentes esperan una y otra vez mientras el sistema libera memoria.",
   "81aafe06d7fede9a": "Donde T3 Code guarda sus datos y worktrees",
   "9429f8ff8866edac": "CPU",
-  "79a21371b8db96da": "El trabajo espera una CPU libre o el disco, así que los agentes van lentos."
+  "79a21371b8db96da": "El trabajo espera una CPU libre o el disco, así que los agentes van lentos.",
+  "5ec14dddb3ef6bab": "Límites de {provider}",
+  "eb6430098e345308": "Actualizando límites",
+  "4d09c5c477cf867c": "{remaining} % restante · límite alcanzado",
+  "bda726c2ceb32651": "{remaining} % restante · advertencia",
+  "1b6ce5b285c1df52": "Restante de {window}",
+  "50c3266403857de5": "{remaining} % restante, queda el {timeLeft} % del período",
+  "01575273f6f2d1ef": "Muestra el uso disponible en el cuadro de escritura. La aguja indica el período más corto y el arco, el siguiente más largo.",
+  "3310e3cab7ac9dba": "Restablecer el indicador de límites",
+  "e6e617271c365ada": "Indicador de límites del plan",
+  "d4ecd6d7704ce192": "cuadro escritura uso cuota límite suscripción restante reinicio indicador",
+  "ac9eb89ff06504c1": [
+    "Límites de ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    }
+  ]
 }
