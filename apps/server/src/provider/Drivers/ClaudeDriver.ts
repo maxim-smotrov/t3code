@@ -382,6 +382,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
       const usageLimits = yield* recordClaudeUsageResponse(scopedLimitNames, {
         response: capabilities.usage,
         checkedAt: capabilities.usageCheckedAt ?? checkedAt,
+        models: current?.models ?? [],
       });
       // Reset credits need Claude's sign-in token, which T3 reads only with usage access.
       const resetCredits =
